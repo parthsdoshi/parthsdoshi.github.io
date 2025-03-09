@@ -1,0 +1,60 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import { getCollection } from 'astro:content';
+import { getReadingTime } from '../../utils/readingTime';
+import Tooltip from '../../components/common/Tooltip.svelte';
+
+const posts = await getCollection('blog', ({ data }) => {
+  return import.meta.env.DEV || !data.draft;
+});
+
+const sortedPosts = posts.sort(
+  (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf()
+);
+
+const readingTimeTooltip =
+  'Reading time is calculated at 200 words per minute and excludes content in the appendix section.';
+---
+
+<PageLayout
+  title="Blog - Parth Doshi"
+  description="My thoughts on software engineering, tech, and more"
+>
+  <div class="py-10">
+    <h1 class="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Blog Posts</h1>
+    <div class="space-y-8">
+      {
+        sortedPosts.map((post) => (
+          <article class="border-b border-gray-200 dark:border-gray-700 pb-8">
+            <div class="mb-2">
+              <a href={`/blog/${post.slug}`} class="block">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300">
+                  {post.data.title}
+                </h2>
+              </a>
+            </div>
+            <div class="flex gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1 items-center">
+              <time datetime={post.data.publishDate.toISOString()}>
+                {post.data.publishDate.toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </time>
+              <span>·</span>
+              <span class="flex items-center gap-1">
+                {getReadingTime(post.body)} min read
+                <Tooltip client:load text={readingTimeTooltip} />
+              </span>
+            </div>
+            <a href={`/blog/${post.slug}`} class="block mt-3">
+              <p class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                {post.data.description}
+              </p>
+            </a>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</PageLayout>

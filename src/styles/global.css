@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+:root {
+  scroll-behavior: smooth;
+  /* A bit quicker than default by setting a shorter scroll time */
+  --scroll-duration: 0.3s;
+  /* Account for the fixed navbar */
+  scroll-padding-top: 4rem;
+}

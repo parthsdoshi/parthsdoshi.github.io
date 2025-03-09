@@ -1,0 +1,53 @@
+---
+interface Props {
+  messages: {
+    role: 'user' | 'assistant';
+    content: string;
+  }[];
+}
+
+const { messages } = Astro.props;
+---
+
+<div class="not-prose chat-container space-y-4 my-4">
+  {
+    messages.map((message) => (
+      <div class={`chat-message ${message.role}`}>
+        <div class="px-4 py-2 rounded-lg">
+          <div class="font-medium text-xs uppercase tracking-wider mb-2">
+            {message.role === 'user' ? '🧑‍💻 Human' : '🤖 Assistant'}
+          </div>
+          <div class="prose dark:prose-invert max-w-none text-sm">{message.content}</div>
+        </div>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  @reference "../../styles/global.css";
+
+  .chat-container {
+    @apply rounded-lg;
+  }
+
+  .chat-message {
+    @apply transition-colors;
+  }
+
+  .chat-message.user {
+    @apply bg-blue-50 dark:bg-blue-950/30;
+  }
+
+  .chat-message.assistant {
+    @apply bg-gray-50 dark:bg-gray-900/30;
+  }
+
+  .chat-message.user .font-medium {
+    @apply text-blue-600 dark:text-blue-400;
+  }
+
+  .chat-message.assistant .font-medium {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+</style>

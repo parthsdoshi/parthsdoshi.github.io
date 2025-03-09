@@ -1,0 +1,324 @@
+---
+title: 'Migrating from Gatsby + Strapi to Astro + Svelte'
+description: 'Why I rewrote my personal website and the challenges of maintaining legacy web stacks'
+publishDate: 2025-03-09
+tags: ['web development', 'astro', 'svelte', 'gatsby', 'strapi', 'migration']
+---
+
+import Chat from '../../components/common/Chat.astro';
+
+I recently rewrote my personal website, moving away from a Gatsby + Strapi stack to a simpler Astro + Svelte setup. Here's why I made the switch and what I learned along the way.
+
+## The Old Stack's Challenges
+
+My previous website was built with Gatsby and used Strapi as a headless CMS. While this stack worked well initially, several issues made it increasingly difficult to maintain:
+
+1. **GraphQL Complexity**: I found GraphQL quite complicated and unintuitive, making it difficult to maintain the codebase. While GraphQL is powerful, the overhead wasn't justified for my relatively simple personal website.
+
+2. **Architecture Limitations**: The old project's dependencies no longer compiled on my newer ARM laptop, effectively preventing me from making changes to the core layout. Running an x86 VM just to compile the project seemed like overkill, and upgrading dependencies (especially Strapi) presented significant migration challenges due to DB schema changes.
+
+3. **Painful Content Management Workflow**: My Strapi server was hosted on a very low-end machine. Making content changes required:
+
+   - Turning on the server
+   - Waiting ~10 minutes for it to start up
+   - Making changes through the UI which would write to the DB
+     This workflow was unnecessarily time-consuming for simple content updates.
+
+4. **Deployment Issues**: The setup triggered a Gatsby rebuild of the static website whenever DB updates were made. These builds started failing due to outdated dependencies.
+
+5. **Infrastructure Complexity**: The database was locked in a private VPC on Azure, making schema migrations particularly challenging:
+   - Azure doesn't provide an easy path to migrate from private to public IP
+   - Their transfer tool requires a higher-tier node type
+   - Upgrading to the minimum allowed node type quickly consumed my $50 monthly credits
+   - Node upgrades took 2-3 hours to complete
+
+## The Breaking Point
+
+After spending hours trying to fix these issues, I realized I was fighting against unnecessary complexity. The emergence of modern AI-powered development tools like GitHub Copilot, Cursor, and Claude Code opened up a different possibility: rewriting the entire website from scratch.
+
+## The New Approach
+
+### Why Astro + Svelte?
+
+I have a personal tradition: whenever I update my website, I use it as an opportunity to learn the latest web technologies. My day job primarily involves writing design documents, analyzing ML model performance, and implementing backend business logic in Python. I rarely get the chance to do any frontend development, so my personal website serves as my playground for staying current with modern web development practices.
+
+This time around, I chose Astro and Svelte. Astro has been gaining significant traction in the static site generation space, while Svelte represents a fresh take on frontend frameworks with its compile-time approach to reactivity. Learning these technologies helps me stay connected to the frontend ecosystem, even though it's not part of my daily work.
+
+### Replacing the CMS
+
+With modern AI coding assistants, a traditional CMS isn't strictly necessary for my use case. I can:
+
+- Write content in Markdown/MDX files
+- Use AI tools to help implement design changes
+- Express what I want to add to the website in plain English
+- Have the AI tools help generate and modify the code
+
+This workflow is actually more efficient than using a CMS for my needs, since I'm the only one managing the website.
+
+## Looking Forward
+
+This migration has significantly simplified my website's architecture while maintaining all the functionality I need. The new stack is:
+
+- Easier to maintain
+- Faster to deploy
+- More straightforward to develop
+- Less dependent on external services
+
+Sometimes, the best solution is to step back and realize when you're over-engineering for your use case. For a personal website, simpler is often better.
+
+## Appendix: How I used Agents to do this rewrite
+
+### Editor + Model
+
+At work, I use [Cursor](https://www.cursor.com/en) to run agentic workflows but I decided to try GitHub's recently announced Agentic workflow instead: [link](https://github.blog/news-insights/product-news/github-copilot-the-agent-awakens/).
+
+I don't pay for the Copilot Pro subscription ever since they made a free tier so I used Claude 3.5 Sonnet since that's the best model included.
+If you do pay for pro, I'd highly recommend using the best model available (at the time of writing, that's Claude 3.7 Sonnet).
+
+### Prompts
+
+<details>
+<summary>Here's all the prompts I used to rewrite my website from scratch:</summary>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        "I want to rewrite my personal website in the Personal-Website folder. It was written with react, gatsby, strapi, and bulma. I'd like to rewrite it with Astro + Svelte + tailwind + MDX (i.e. no CMS).\n\nLet's add the new website into the `website` folder.",
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help you rewrite your website using Astro, Svelte, Tailwind CSS, and MDX. First, let's create a new Astro project in the website folder.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: "Let's use pnpm instead of npm",
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help you create a new Astro project using pnpm. Let's set it up in the website directory.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: "ah also let's use mise to manage tooling",
+    },
+    {
+      role: 'assistant',
+      content:
+        'I\'ll help you set up `mise` (formerly known as `rtx`) for managing the Node.js version and pnpm for your project. Let\'s create a `.mise.toml` file and then create the Astro project.\n\n```toml\n[tools]\nnode = "20"\npnpm = "latest"\n\n[env]\nNODE_ENV = "development"\n```\n\nMade changes.\n\nNow, let\'s initialize the Astro project with Svelte and Tailwind using pnpm. I\'ll run the create command in the terminal:',
+    },
+    {
+      role: 'user',
+      content: 'We should do this within the website folder. Not in the root folder.',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help you set up the new Astro project in the correct location. Let's first navigate to the website folder and initialize the project.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: 'I fixed mise, please continue.',
+    },
+    {
+      role: 'assistant',
+      content:
+        "Great! Now that mise is working, let's create a new Astro project in the website directory with Svelte and Tailwind CSS support.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        "Let's start with replicating my old website's landing page. It had a profile picture, intro text, links to my socials, and my previous work experience which included Fathom Health (current), Microsoft, Cisco, Viptela, and Purdue.",
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help you recreate your landing page with a modern design using Astro and Svelte. We'll break this down into components:\n\n1. Profile section with picture and intro\n2. Work experience section with company logos\n3. Navigation/social links\n\nLet me analyze your old website structure to ensure we maintain the same content while modernizing the implementation.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: 'I think we should add smooth scrolling to the website.',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help add smooth scrolling to the website. Since we're using Astro with a mix of static and Svelte components, we'll implement this through CSS to ensure it works consistently across all pages.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        "I'd like to add a picture of myself to the landing page. What's the best way to do so? What image format should I upload the picture as? What image size is good enough?",
+    },
+    {
+      role: 'assistant',
+      content:
+        "Based on modern web practices, here's what I recommend for your profile picture:\n\n1. Format: WebP with JPEG/PNG fallback (WebP offers better compression while maintaining quality)\n2. Recommended size:\n   - Width: 400-600px\n   - Height: proportional to maintain aspect ratio\n   - Resolution: 72dpi is sufficient for web\n3. File size: Aim for under 200KB\n\nLet me help you implement this using Astro's built-in image optimization.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: "Could you please ensure we're following accessibility best practices?",
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help review and enhance the accessibility of your website. Here's what we should focus on:\n\n1. Proper heading hierarchy\n2. ARIA labels where needed\n3. Sufficient color contrast\n4. Keyboard navigation\n5. Screen reader compatibility\n\nLet me scan through your components and make the necessary improvements.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: 'The website needs a dark mode toggle',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help implement a dark mode toggle using Svelte for state management and Tailwind's dark mode classes. We'll ensure it:\n\n1. Persists user preference in localStorage\n2. Respects system preferences by default\n3. Updates in real-time across all components\n4. Has smooth transitions between modes",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        'The Astro toolbar says:\n\n"Use the Image component\nThis image could be replaced with the Image component to improve performance."',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help you optimize the images using Astro's built-in Image component. This will provide:\n\n1. Automatic responsive images\n2. Lazy loading\n3. Proper image dimensions\n4. WebP format with fallbacks\n5. Image optimization on build",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        'Could you please add linting and formatting via prettier and eslint? If you need to install any libraries, please use pnpm over npm.',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll help set up ESLint and Prettier with the modern flat config format for better maintainability. We'll configure:\n\n1. TypeScript support\n2. Svelte plugin integration\n3. Prettier integration with ESLint\n4. Specific rules for Astro files\n5. Format on save capability",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        'For projects, get rid of the mise one and replace it with: MediaQ: a easy no-login, no-fuss media queue. Tech: python + flask backend, react + redux frontend. GitHub link: https://github.com/parthsdoshi/MediaQ',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll update the Projects component to replace the mise project with MediaQ, updating the technologies and description to match your specifications.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        'Yes please add Fabel: Automatically label and organize downloaded files. Tech: Flask python backend served an embedding model used to embed downloaded files. Frontend application used pywebview (electron equivalent) and react to display files with their organized labels. There was also a helper Chrome extension to track downloads. GitHub: https://github.com/parthsdoshi/fabel',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll add the Fabel project alongside MediaQ in the Projects component, highlighting its use of machine learning for file organization and its multi-component architecture.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: 'Please add reading time to the blog pages.',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll implement a reading time calculator for blog posts. I'll create a utility function that calculates reading time based on word count, and then display it on both the blog index and individual blog post pages.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content: 'Could you exclude the appendix section from the calculation?',
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll modify the reading time calculator to exclude content after the appendix heading, giving readers a more accurate estimate of the main content's reading time.",
+    },
+  ]}
+/>
+
+<Chat
+  messages={[
+    {
+      role: 'user',
+      content:
+        "There should be an (i) information icon next to the reading time, it should tell them that the appendix is not included and that we're assuming 200 wpm.",
+    },
+    {
+      role: 'assistant',
+      content:
+        "I'll add an information icon with a tooltip next to the reading time that explains our calculation method and notes about the appendix exclusion.",
+    },
+  ]}
+/>
+
+</details>

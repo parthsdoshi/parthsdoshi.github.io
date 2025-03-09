@@ -1,0 +1,18 @@
+---
+import Layout from './Layout.astro';
+import Navbar from '../components/common/Navbar.svelte';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<Layout {title} {description}>
+  <Navbar client:load />
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
+    <slot />
+  </main>
+</Layout>

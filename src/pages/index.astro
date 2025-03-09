@@ -1,0 +1,55 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import WorkExperience from '../components/common/WorkExperience.svelte';
+import Projects from '../components/common/Projects.svelte';
+import { Image } from 'astro:assets';
+import profileImage from '../assets/profile/profile.webp';
+---
+
+<PageLayout title="Parth Doshi - Lead Software Engineer">
+  <div class="py-12">
+    <div class="max-w-3xl">
+      <div class="flex flex-col md:flex-row items-start md:items-center gap-8 mb-8">
+        <div
+          class="w-72 h-72 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-200 dark:border-gray-700"
+        >
+          <Image
+            src={profileImage}
+            alt="Parth Doshi"
+            width={288}
+            height={288}
+            quality="max"
+            format="webp"
+            loading="eager"
+            class="w-full h-full object-cover"
+          />
+        </div>
+        <div>
+          <h1 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
+            Hi, I'm Parth Doshi
+          </h1>
+          <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
+            I'm a Lead Software Engineer at Fathom Health working on using maching learning to
+            automate medical coding.
+          </p>
+          <p class="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
+            I graduated from Purdue University in December 2019 where I studied Computer Science and
+            Mathematical Statistics.
+          </p>
+          <p class="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
+            Aside from my professional life, I love to cook, play volleyball, and sometimes practice
+            writing in my blog.
+          </p>
+          <div class="mt-8 flex gap-x-6">
+            <a href="/blog" class="text-sm font-semibold leading-6 text-gray-900 dark:text-white">
+              Read my blog <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <WorkExperience client:load />
+  <Projects client:load />
+</PageLayout>
