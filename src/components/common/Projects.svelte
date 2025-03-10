@@ -26,14 +26,14 @@
       title: 'Personal Website',
       description:
         'My personal website built with modern web technologies. Features server-side rendering, static site generation, and responsive design.',
-      github: 'https://github.com/parthsdoshi/website',
+      github: 'https://github.com/parthsdoshi/parthsdoshi.github.io',
       link: 'https://parthdoshi.com',
       tags: ['Astro', 'Svelte', 'TypeScript', 'Tailwind CSS', 'MDX'],
     },
     {
       title: 'Pawse',
       description: 'Pawse your laptop when your kitty gets its paws on it',
-      github: 'https://github.com/parthsdoshi/fabel/tree/master',
+      github: 'https://github.com/parthsdoshi/pawse',
       tags: ['Python'],
     },
   ];
