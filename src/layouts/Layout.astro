@@ -12,6 +12,18 @@ const { title, description = "Parth's personal website" } = Astro.props;
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- Inline script for immediate theme application -->
+    <script is:inline>
+      (function () {
+        const theme = localStorage.getItem('theme') || 'auto';
+        const isDark =
+          theme === 'dark' ||
+          (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+        document.documentElement.classList.remove(isDark ? 'light' : 'dark');
+        document.documentElement.classList.add(isDark ? 'dark' : 'light');
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/png" href="/favicon.svg" />

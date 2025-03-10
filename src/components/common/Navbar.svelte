@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ThemeToggle from './ThemeToggle.svelte';
+
   const links = [
     { href: '/', text: 'Home' },
     { href: '/blog', text: 'Blog' },
@@ -15,16 +17,19 @@
       <div class="flex items-center">
         <a href="/" class="text-xl font-bold text-gray-900 dark:text-white"> Parth Doshi </a>
       </div>
-      <div class="hidden sm:flex sm:items-center">
-        {#each links as { href, text, external } (href)}
-          <a
-            {href}
-            class="ml-8 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-            {...external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
-          >
-            {text}
-          </a>
-        {/each}
+      <div class="flex items-center gap-8">
+        <div class="hidden sm:flex sm:items-center">
+          {#each links as { href, text, external } (href)}
+            <a
+              {href}
+              class="ml-8 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              {...external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
+            >
+              {text}
+            </a>
+          {/each}
+        </div>
+        <ThemeToggle />
       </div>
     </div>
   </div>
