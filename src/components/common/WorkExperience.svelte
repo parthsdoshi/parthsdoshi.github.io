@@ -12,7 +12,7 @@
     {
       company: 'Fathom Health',
       logo: '/images/companies/fathom.svg',
-      url: 'https://www.fathomhealth.com',
+      url: 'https://www.fathomhealth.com/insights/growing-with-fathom-parth-doshi',
       padding: 'pt-4',
       size: 'w-40 h-40',
       invertInDarkMode: false,
