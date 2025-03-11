@@ -121,6 +121,10 @@
           focusedIndex = i;
           isKeyboardNavigation = false;
         }}
+        on:focus={() => {
+          focusedIndex = i;
+          isKeyboardNavigation = true;
+        }}
         role="menuitemradio"
         tabindex="-1"
         aria-checked={selectedIndex === i}
