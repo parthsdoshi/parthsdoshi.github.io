@@ -3,8 +3,8 @@
 
   const links = [
     { href: '/', text: 'Home' },
-    { href: '/blog', text: 'Blog' },
     { href: '/#projects', text: 'Projects' },
+    { href: '/blog', text: 'Blog' },
     { href: 'https://parthsdoshi.github.io/resume/out/resume.pdf', text: 'Resume', external: true },
   ];
 </script>
@@ -18,7 +18,7 @@
         <a href="/" class="text-xl font-bold text-gray-900 dark:text-white"> Parth Doshi </a>
       </div>
       <div class="flex items-center gap-8">
-        <div class="hidden sm:flex sm:items-center">
+        <div class="sm:flex sm:items-center">
           {#each links as { href, text, external } (href)}
             <a
               {href}
