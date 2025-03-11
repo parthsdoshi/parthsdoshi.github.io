@@ -21,10 +21,11 @@ My previous website was built with Gatsby and used Strapi as a headless CMS. Whi
 
    - Turning on the server
    - Waiting ~10 minutes for it to start up
-   - Making changes through the UI which would write to the DB
-     This workflow was unnecessarily time-consuming for simple content updates.
+   - Making changes through the UI which would write to the DB. Then this would trigger a Gatsby rebuild in GitHub which would trigger a Netlify deploy.
 
-4. **Deployment Issues**: The setup triggered a Gatsby rebuild of the static website whenever DB updates were made. These builds started failing due to outdated dependencies.
+This workflow was unnecessarily time-consuming for simple content updates.
+
+4. **Deployment Issues**: The Gatsby rebuilds of the static website started failing due to outdated dependencies.
 
 5. **Infrastructure Complexity**: The database was locked in a private VPC on Azure, making schema migrations particularly challenging:
    - Azure doesn't provide an easy path to migrate from private to public IP
@@ -42,7 +43,9 @@ After spending hours trying to fix these issues, I realized I was fighting again
 
 I have a personal tradition: whenever I update my website, I use it as an opportunity to learn the latest web technologies. My day job primarily involves writing design documents, analyzing ML model performance, and implementing backend business logic in Python. I rarely get the chance to do any frontend development, so my personal website serves as my playground for staying current with modern web development practices.
 
-This time around, I chose Astro and Svelte. Astro has been gaining significant traction in the static site generation space, while Svelte represents a fresh take on frontend frameworks with its compile-time approach to reactivity. Learning these technologies helps me stay connected to the frontend ecosystem, even though it's not part of my daily work.
+This time around, I chose Astro and Svelte. Astro has been gaining significant traction in the static site generation space, while Svelte represents a fresh take on frontend frameworks with its compile-time approach to reactivity.
+
+Most of all, I find it fun to tinker even if I waste time understanding the new tech stack.
 
 ### Replacing the CMS
 
@@ -63,6 +66,7 @@ This migration has significantly simplified my website's architecture while main
 - Faster to deploy
 - More straightforward to develop
 - Less dependent on external services
+- Doesn't require 2 repos (one for the frontend and one for the CMS)
 
 Sometimes, the best solution is to step back and realize when you're over-engineering for your use case. For a personal website, simpler is often better.
 
