@@ -66,6 +66,10 @@ export interface Session {
   workout: 'A' | 'B';
   durationSec: number;
   sets: LoggedSet[];
+  /** free-form note about the whole session */
+  note?: string;
+  /** exercise id -> note jotted during the session */
+  exerciseNotes?: Record<string, string>;
 }
 
 const workoutA: WorkoutDef = {
