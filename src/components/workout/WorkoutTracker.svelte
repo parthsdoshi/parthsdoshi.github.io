@@ -14,6 +14,7 @@
   } from './plan';
   import MuscleMap from './MuscleMap.svelte';
   import FormSheet from './FormSheet.svelte';
+  import SessionEditor from './SessionEditor.svelte';
 
   // SHA-256 of the password; the plaintext never ships in the bundle.
   const PASS_HASH = 'cad0535decc38b248b40e7aef9a1cfd91ce386fa5c46f05ea622649e7faf18fb';
@@ -67,6 +68,36 @@
 
   // Form guide sheet
   let formExercise = $state<Exercise | null>(null);
+
+  // History session editor
+  let editingIndex = $state<number | null>(null);
+  let editingDraft = $state<Session | null>(null);
+
+  function openSessionEditor(ses: Session) {
+    const idx = history.indexOf(ses);
+    if (idx < 0) return;
+    editingIndex = idx;
+    editingDraft = $state.snapshot(history[idx]) as Session;
+  }
+
+  function closeSessionEditor() {
+    editingIndex = null;
+    editingDraft = null;
+  }
+
+  function saveEditedSession(cleaned: Session) {
+    if (editingIndex !== null && editingIndex < history.length) {
+      history[editingIndex] = cleaned;
+    }
+    closeSessionEditor();
+  }
+
+  function deleteEditedSession() {
+    if (editingIndex !== null && editingIndex < history.length) {
+      history.splice(editingIndex, 1);
+    }
+    closeSessionEditor();
+  }
 
   let loaded = false;
 
@@ -848,8 +879,11 @@
             <div class="mt-6 flex flex-col md:mt-4">
               <p class="eyebrow m-0 mb-1 text-[10px]">Recent</p>
               {#each history.slice(-5).reverse() as ses (ses.date)}
-                <div
-                  class="hairline-t flex items-center justify-between py-3.5 text-[13px] md:py-2.5"
+                <button
+                  type="button"
+                  class="ses-row"
+                  onclick={() => openSessionEditor(ses)}
+                  aria-label="Edit session: Workout {ses.workout}, {shortDate(ses.date)}"
                 >
                   <span class="font-bold"
                     >{ses.workout}
@@ -857,12 +891,15 @@
                       >— {shortDate(ses.date)}</span
                     ></span
                   >
-                  <span class="tab" style="color: var(--muted);"
+                  <span class="tab ml-auto" style="color: var(--muted);"
                     >{ses.sets.length} sets · {formatTime(ses.durationSec)}</span
                   >
-                </div>
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"
+                    ><path d="M7 4l6 6-6 6" stroke="#6f7361" stroke-width="2" /></svg
+                  >
+                </button>
                 {#if ses.note}
-                  <p class="m-0 -mt-1.5 pb-2.5 text-[11px] italic" style="color: var(--muted2);">
+                  <p class="m-0 -mt-1 pb-2.5 text-[11px] italic" style="color: var(--muted2);">
                     “{ses.note}”
                   </p>
                 {/if}
@@ -1324,6 +1361,15 @@
   {#if formExercise}
     <FormSheet exercise={formExercise} onclose={() => (formExercise = null)} />
   {/if}
+
+  {#if editingDraft}
+    <SessionEditor
+      session={editingDraft}
+      onsave={saveEditedSession}
+      ondelete={deleteEditedSession}
+      oncancel={closeSessionEditor}
+    />
+  {/if}
 </div>
 
 <style>
@@ -1428,6 +1474,26 @@
   }
   .form-btn:hover {
     border-color: var(--accent);
+    color: var(--accent);
+  }
+  .ses-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 2px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--line2);
+    border-radius: 0;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+  }
+  .ses-row:hover {
     color: var(--accent);
   }
   .note-input {
