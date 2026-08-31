@@ -6,7 +6,6 @@
     workoutMuscles,
     repsLabel,
     formatTime,
-    type Block,
     type Exercise,
     type LoggedSet,
     type Session,
@@ -14,6 +13,7 @@
     type WorkoutDef,
   } from './plan';
   import MuscleMap from './MuscleMap.svelte';
+  import FormSheet from './FormSheet.svelte';
 
   // SHA-256 of the password; the plaintext never ships in the bundle.
   const PASS_HASH = 'cad0535decc38b248b40e7aef9a1cfd91ce386fa5c46f05ea622649e7faf18fb';
@@ -58,6 +58,9 @@
   // Summary state
   let finished = $state<Session | null>(null);
   let bumped = $state<Record<string, boolean>>({});
+
+  // Form guide sheet
+  let formExercise = $state<Exercise | null>(null);
 
   let loaded = false;
 
@@ -249,6 +252,8 @@
 
   const lastSession = $derived(history.length ? history[history.length - 1] : null);
   const suggestedId = $derived<'A' | 'B'>(lastSession?.workout === 'A' ? 'B' : 'A');
+  const suggestedWorkout = $derived(WORKOUTS.find((w) => w.id === suggestedId) ?? WORKOUTS[0]);
+  const otherWorkout = $derived(WORKOUTS.find((w) => w.id !== suggestedId) ?? WORKOUTS[1]);
 
   const homeEyebrow = $derived.by(() => {
     const today = new Date();
@@ -298,15 +303,6 @@
 
   function repRange(ex: Exercise): string {
     return ex.repsMin === ex.repsMax ? `${ex.repsMin}` : `${ex.repsMin}–${ex.repsMax}`;
-  }
-
-  function listLine(block: Block): string {
-    if (block.kind === 'single') {
-      const ex = block.exercise;
-      const side = ex.perSide ? ` / ${ex.perSide}` : '';
-      return `${ex.name} — ${block.sets}×${repRange(ex)}${side}`;
-    }
-    return `${block.exercises[0].name} + ${block.exercises[1].name} — ${block.sets} rounds`;
   }
 
   // ---- Session flow ----
@@ -663,11 +659,13 @@
 {/snippet}
 
 <div class="wrap min-h-screen w-full">
-  <div class="mx-auto flex min-h-screen w-full max-w-[420px] flex-col px-5 pb-8 pt-5">
+  <div
+    class="mx-auto flex min-h-screen w-full max-w-[420px] flex-col px-5 pb-8 pt-5 md:max-w-[960px] md:pt-8"
+  >
     {#if screen === 'lock'}
       <div class="relative flex flex-1 flex-col justify-center overflow-hidden">
         <div class="watermark display" aria-hidden="true">35</div>
-        <div class="relative flex flex-col gap-11">
+        <div class="relative flex flex-col gap-11 md:mx-auto md:w-[400px]">
           <div class="flex flex-col gap-3.5">
             <div class="h-1.5 w-11" style="background: var(--accent);"></div>
             <h1 class="display m-0 text-[56px] leading-[0.94] tracking-tight">Training<br />log</h1>
@@ -694,444 +692,533 @@
         </div>
       </div>
     {:else if screen === 'home'}
-      <div class="flex flex-col gap-2 pt-2">
-        <p class="eyebrow m-0">{homeEyebrow}</p>
-        <h1 class="display m-0 text-[34px] leading-none">Workout {suggestedId}<br />is up.</h1>
-      </div>
+      <div class="flex flex-col md:grid md:grid-cols-2 md:content-start md:items-start md:gap-x-8">
+        <div class="flex flex-col gap-2 pt-2 md:col-span-2">
+          <p class="eyebrow m-0">{homeEyebrow}</p>
+          <h1 class="display m-0 text-[34px] leading-none">
+            Workout {suggestedId}<br class="md:hidden" /> is up.
+          </h1>
+        </div>
 
-      {#if resumable}
-        <div class="card mt-4 flex flex-col gap-3 p-4" style="border-color: var(--accent);">
-          <p class="m-0 text-sm font-bold">
-            Workout {resumable.workoutId} in progress — {resumable.sets.length} sets logged
-          </p>
-          <div class="flex gap-2">
+        {#if resumable}
+          <div
+            class="card mt-4 flex flex-col gap-3 p-4 md:col-span-2 md:flex-row md:items-center md:justify-between"
+            style="border-color: var(--accent);"
+          >
+            <p class="m-0 text-sm font-bold">
+              Workout {resumable.workoutId} in progress — {resumable.sets.length} sets logged
+            </p>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="btn-accent h-11 flex-1 text-xs font-bold uppercase tracking-[2px] md:flex-none md:px-6"
+                onclick={resumeWorkout}
+              >
+                Resume
+              </button>
+              <button
+                type="button"
+                class="btn-ghost h-11 px-4 text-xs font-bold uppercase tracking-[2px]"
+                onclick={discardResumable}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        {/if}
+
+        <div class="card mt-4 flex flex-col gap-3.5 px-4 pb-4 pt-[18px]">
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-0.5">
+              <span class="display text-[17px]">Workout {suggestedWorkout.id}</span>
+              <span class="row-sub">{suggestedWorkout.title}</span>
+            </div>
+            <span class="tag-accent">Up next</span>
+          </div>
+          <div class="flex flex-col gap-[7px] text-[13px]" style="color: #c9ccbb;">
+            {#each suggestedWorkout.blocks as block (block.label)}
+              <div class="flex gap-2.5">
+                <span class="w-[26px] shrink-0 text-[11px] font-bold" style="color: var(--muted2);"
+                  >{block.kind === 'single' ? block.label : `${block.label}ab`}</span
+                >
+                <span class="flex flex-wrap items-baseline gap-x-1.5">
+                  {#if block.kind === 'single'}
+                    {@const ex = block.exercise}
+                    <button type="button" class="ex-link" onclick={() => (formExercise = ex)}
+                      >{ex.name}</button
+                    >
+                    <span>— {block.sets}×{repRange(ex)}{ex.perSide ? ` / ${ex.perSide}` : ''}</span>
+                  {:else}
+                    {@const a = block.exercises[0]}
+                    {@const b = block.exercises[1]}
+                    <button type="button" class="ex-link" onclick={() => (formExercise = a)}
+                      >{a.name}</button
+                    >
+                    <span>+</span>
+                    <button type="button" class="ex-link" onclick={() => (formExercise = b)}
+                      >{b.name}</button
+                    >
+                    <span>— {block.sets} rounds</span>
+                  {/if}
+                </span>
+              </div>
+            {/each}
+          </div>
+          {@render chips(workoutMuscles(suggestedWorkout))}
+          <button
+            type="button"
+            class="btn-accent h-14"
+            onclick={() => startWorkout(suggestedWorkout)}
+          >
+            <span class="display text-sm tracking-[2.2px]">Start workout {suggestedWorkout.id}</span
+            >
+          </button>
+        </div>
+
+        <div class="flex flex-col">
+          <div class="card2 mt-4 flex flex-col gap-3 p-4">
+            <div class="flex flex-col gap-0.5">
+              <span class="display text-[15px]" style="color: #c9ccbb;"
+                >Workout {otherWorkout.id}</span
+              >
+              <span class="row-sub">{otherWorkout.title}</span>
+            </div>
             <button
               type="button"
-              class="btn-accent h-11 flex-1 text-xs font-bold uppercase tracking-[2px]"
-              onclick={resumeWorkout}
+              class="btn-outline h-12"
+              onclick={() => startWorkout(otherWorkout)}
             >
-              Resume
-            </button>
-            <button
-              type="button"
-              class="btn-ghost h-11 px-4 text-xs font-bold uppercase tracking-[2px]"
-              onclick={discardResumable}
-            >
-              Discard
+              Start workout {otherWorkout.id}
             </button>
           </div>
-        </div>
-      {/if}
 
-      {#each WORKOUTS as w (w.id)}
-        {#if w.id === suggestedId}
-          <div class="card mt-4 flex flex-col gap-3.5 px-4 pb-4 pt-[18px]">
-            <div class="flex items-center justify-between">
-              <div class="flex flex-col gap-0.5">
-                <span class="display text-[17px]">Workout {w.id}</span>
-                <span class="row-sub">{w.title}</span>
-              </div>
-              <span class="tag-accent">Up next</span>
-            </div>
-            <div class="flex flex-col gap-[7px] text-[13px]" style="color: #c9ccbb;">
-              {#each w.blocks as block (block.label)}
-                <div class="flex gap-2.5">
-                  <span
-                    class="w-[26px] shrink-0 text-[11px] font-bold"
-                    style="color: var(--muted2);"
-                    >{block.kind === 'single' ? block.label : `${block.label}ab`}</span
+          {#if history.length}
+            <div class="mt-6 flex flex-col md:mt-4">
+              <p class="eyebrow m-0 mb-1 text-[10px]">Recent</p>
+              {#each history.slice(-5).reverse() as ses (ses.date)}
+                <div
+                  class="hairline-t flex items-center justify-between py-3.5 text-[13px] md:py-2.5"
+                >
+                  <span class="font-bold"
+                    >{ses.workout}
+                    <span class="font-normal" style="color: var(--muted);"
+                      >— {shortDate(ses.date)}</span
+                    ></span
                   >
-                  {listLine(block)}
+                  <span class="tab" style="color: var(--muted);"
+                    >{ses.sets.length} sets · {formatTime(ses.durationSec)}</span
+                  >
                 </div>
               {/each}
             </div>
-            {@render chips(workoutMuscles(w))}
-            <button type="button" class="btn-accent h-14" onclick={() => startWorkout(w)}>
-              <span class="display text-sm tracking-[2.2px]">Start workout {w.id}</span>
-            </button>
-          </div>
-        {:else}
-          <div class="card2 mt-4 flex flex-col gap-3 p-4">
-            <div class="flex flex-col gap-0.5">
-              <span class="display text-[15px]" style="color: #c9ccbb;">Workout {w.id}</span>
-              <span class="row-sub">{w.title}</span>
-            </div>
-            <button type="button" class="btn-outline h-12" onclick={() => startWorkout(w)}>
-              Start workout {w.id}
-            </button>
-          </div>
-        {/if}
-      {/each}
+          {/if}
 
-      {#if history.length}
-        <div class="mt-6 flex flex-col">
-          <p class="eyebrow m-0 mb-1 text-[10px]">Recent</p>
-          {#each history.slice(-5).reverse() as ses (ses.date)}
-            <div class="hairline-t flex items-center justify-between py-3.5 text-[13px]">
-              <span class="font-bold"
-                >{ses.workout}
-                <span class="font-normal" style="color: var(--muted);">— {shortDate(ses.date)}</span
-                ></span
+          <div class="hairline-t mt-6 flex flex-col gap-2 pt-4 md:mt-4">
+            <p class="display m-0 text-[13px]">Backup</p>
+            <p class="m-0 text-[11px]" style="color: var(--muted);">
+              Your log lives only in this browser. Export a JSON backup to keep it safe or move it
+              to another device.
+            </p>
+            <div class="mt-1 flex gap-2">
+              <button
+                type="button"
+                class="btn-ghost h-11 flex-1 text-xs font-bold uppercase tracking-[2px]"
+                onclick={exportData}
               >
-              <span class="tab" style="color: var(--muted);"
-                >{ses.sets.length} sets · {formatTime(ses.durationSec)}</span
+                Export data
+              </button>
+              <button
+                type="button"
+                class="btn-ghost h-11 flex-1 text-xs font-bold uppercase tracking-[2px]"
+                onclick={() => importFileInput?.click()}
               >
+                Import backup
+              </button>
+              <input
+                type="file"
+                accept=".json,application/json"
+                class="hidden"
+                bind:this={importFileInput}
+                onchange={importData}
+                aria-label="Import backup file"
+              />
             </div>
-          {/each}
-        </div>
-      {/if}
-
-      <div class="hairline-t mt-6 flex flex-col gap-2 pt-4">
-        <p class="display m-0 text-[13px]">Backup</p>
-        <p class="m-0 text-[11px]" style="color: var(--muted);">
-          Your log lives only in this browser. Export a JSON backup to keep it safe or move it to
-          another device.
-        </p>
-        <div class="mt-1 flex gap-2">
-          <button
-            type="button"
-            class="btn-ghost h-11 flex-1 text-xs font-bold uppercase tracking-[2px]"
-            onclick={exportData}
-          >
-            Export data
-          </button>
-          <button
-            type="button"
-            class="btn-ghost h-11 flex-1 text-xs font-bold uppercase tracking-[2px]"
-            onclick={() => importFileInput?.click()}
-          >
-            Import backup
-          </button>
-          <input
-            type="file"
-            accept=".json,application/json"
-            class="hidden"
-            bind:this={importFileInput}
-            onchange={importData}
-            aria-label="Import backup file"
-          />
-        </div>
-        {#if importStatus}
-          <p
-            class="m-0 text-sm"
-            style="color: {importStatus.startsWith('Import failed') ? '#ff6a3d' : 'var(--accent)'};"
-          >
-            {importStatus}
-          </p>
-        {/if}
-      </div>
-    {:else if screen === 'active' && workout}
-      <div class="flex flex-col gap-3.5">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold uppercase tracking-[2.2px]">Workout {workout.id}</span>
-          <span class="tab text-base font-bold" style="color: #c9ccbb;" aria-label="Elapsed time"
-            >{formatTime(elapsedSec)}</span
-          >
-          <button
-            type="button"
-            class="btn-ghost h-11 px-3.5 text-[10px] font-bold uppercase tracking-[1.8px]"
-            style="color: var(--muted);"
-            onclick={endEarly}
-          >
-            End
-          </button>
-        </div>
-        <div class="stripes flex h-1">
-          <div style="width: {Math.round(workProgress * 100)}%; background: var(--accent);"></div>
-        </div>
-      </div>
-
-      {#if runningLong}
-        <p class="m-0 mt-3 text-xs" style="color: #ff6a3d;">
-          Running long — the cut is exercise 4, never rest on the squat or press.
-        </p>
-      {/if}
-
-      {#if phase === 'warmup'}
-        <div class="mt-6 flex flex-col gap-2.5">
-          <span class="row-label" style="color: var(--muted2);">Warm-up · 3–4 min</span>
-          <h2 class="display m-0 text-[32px] leading-none">{steps[0]?.exercise.name}</h2>
-          <p class="m-0 text-sm" style="color: var(--muted);">
-            One light set, then a moderate set. Skip the treadmill.
-          </p>
-        </div>
-        {#if steps[0]}
-          <div class="mt-4">
-            {@render weightRow(
-              steps[0].exercise,
-              `lb${steps[0].exercise.weightNote ? ` · ${steps[0].exercise.weightNote}` : ''}`,
-              true
-            )}
-          </div>
-        {/if}
-        <button type="button" class="btn-accent mt-auto h-16" onclick={startFirstSet}>
-          <span class="display text-base tracking-[2.4px]">Start set 1</span>
-        </button>
-      {:else if phase === 'work' && step}
-        <div class="mt-6 flex flex-col gap-2.5">
-          <div class="flex items-center gap-2.5">
-            <span class="row-label" style="color: var(--muted2);"
-              >{step.blockLabel} — Set {step.setNumber} of {step.totalSets}</span
-            >
-            {#if step.pairSecond}
-              <span class="tag-outline">superset — go now</span>
-            {:else if step.partnerName}
-              <span class="tag-outline">superset</span>
+            {#if importStatus}
+              <p
+                class="m-0 text-sm"
+                style="color: {importStatus.startsWith('Import failed')
+                  ? '#ff6a3d'
+                  : 'var(--accent)'};"
+              >
+                {importStatus}
+              </p>
             {/if}
           </div>
-          <h2 class="display m-0 text-[36px] leading-[0.98]">{step.exercise.name}</h2>
-          <div class="flex items-baseline gap-2.5">
-            <span class="tab text-[15px] font-bold">{repsLabel(step.exercise)}</span>
-            <span class="row-sub">target</span>
+        </div>
+      </div>
+    {:else if screen === 'active' && workout}
+      <div
+        class="flex flex-1 flex-col md:grid md:grid-cols-2 md:content-start md:items-start md:gap-x-10"
+      >
+        <div class="flex flex-col gap-3.5 md:col-span-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-[2.2px]">Workout {workout.id}</span>
+            <span class="tab text-base font-bold" style="color: #c9ccbb;" aria-label="Elapsed time"
+              >{formatTime(elapsedSec)}</span
+            >
+            <button
+              type="button"
+              class="btn-ghost h-11 px-3.5 text-[10px] font-bold uppercase tracking-[1.8px]"
+              style="color: var(--muted);"
+              onclick={endEarly}
+            >
+              End
+            </button>
           </div>
-          {#if step.exercise.note}
-            <p class="m-0 text-xs" style="color: var(--muted);">{step.exercise.note}</p>
-          {/if}
-          {#if step.exercise.capNote && (weights[step.exercise.id] ?? 0) >= step.exercise.capNote.atWeight}
-            <p class="m-0 text-xs" style="color: #ff6a3d;">{step.exercise.capNote.note}</p>
-          {/if}
-          <div class="flex items-center gap-[18px] py-1">
-            <MuscleMap muscles={step.exercise.muscles} width={50} />
-            <div class="flex flex-col items-start gap-1.5">
-              {#each step.exercise.muscles as m (m)}
+          <div class="stripes flex h-1">
+            <div style="width: {Math.round(workProgress * 100)}%; background: var(--accent);"></div>
+          </div>
+        </div>
+
+        {#if runningLong}
+          <p class="m-0 mt-3 text-xs md:col-span-2" style="color: #ff6a3d;">
+            Running long — the cut is exercise 4, never rest on the squat or press.
+          </p>
+        {/if}
+
+        {#if phase === 'warmup'}
+          <div class="flex flex-1 flex-col md:flex-none">
+            <div class="mt-6 flex flex-col gap-2.5">
+              <span class="row-label" style="color: var(--muted2);">Warm-up · 3–4 min</span>
+              <div class="flex items-center gap-3">
+                <h2 class="display m-0 text-[32px] leading-none">{steps[0]?.exercise.name}</h2>
+                {#if steps[0]}
+                  {@const warmEx = steps[0].exercise}
+                  <button type="button" class="form-btn" onclick={() => (formExercise = warmEx)}>
+                    Form
+                  </button>
+                {/if}
+              </div>
+              <p class="m-0 text-sm" style="color: var(--muted);">
+                One light set, then a moderate set. Skip the treadmill.
+              </p>
+            </div>
+            {#if steps[0]}
+              <div class="mt-4">
+                {@render weightRow(
+                  steps[0].exercise,
+                  `lb${steps[0].exercise.weightNote ? ` · ${steps[0].exercise.weightNote}` : ''}`,
+                  true
+                )}
+              </div>
+            {/if}
+            <button type="button" class="btn-accent mt-auto h-16 md:mt-6" onclick={startFirstSet}>
+              <span class="display text-base tracking-[2.4px]">Start set 1</span>
+            </button>
+          </div>
+        {:else if phase === 'work' && step}
+          <div class="mt-6 flex flex-col gap-2.5">
+            <div class="flex items-center gap-2.5">
+              <span class="row-label" style="color: var(--muted2);"
+                >{step.blockLabel} — Set {step.setNumber} of {step.totalSets}</span
+              >
+              {#if step.pairSecond}
+                <span class="tag-outline">superset — go now</span>
+              {:else if step.partnerName}
+                <span class="tag-outline">superset</span>
+              {/if}
+              {#if step}
+                {@const workEx = step.exercise}
+                <button
+                  type="button"
+                  class="form-btn ml-auto"
+                  onclick={() => (formExercise = workEx)}
+                >
+                  Form
+                </button>
+              {/if}
+            </div>
+            <h2 class="display m-0 text-[36px] leading-[0.98]">{step.exercise.name}</h2>
+            <div class="flex items-baseline gap-2.5">
+              <span class="tab text-[15px] font-bold">{repsLabel(step.exercise)}</span>
+              <span class="row-sub">target</span>
+            </div>
+            {#if step.exercise.note}
+              <p class="m-0 text-xs" style="color: var(--muted);">{step.exercise.note}</p>
+            {/if}
+            {#if step.exercise.capNote && (weights[step.exercise.id] ?? 0) >= step.exercise.capNote.atWeight}
+              <p class="m-0 text-xs" style="color: #ff6a3d;">{step.exercise.capNote.note}</p>
+            {/if}
+            <div class="flex items-center gap-[18px] py-1">
+              <MuscleMap muscles={step.exercise.muscles} width={50} />
+              <div class="flex flex-col items-start gap-1.5">
+                {#each step.exercise.muscles as m (m)}
+                  <span class="chip">{m}</span>
+                {/each}
+              </div>
+            </div>
+            {#if lastPerf(step.exercise.id)}
+              {@const perf = lastPerf(step.exercise.id)}
+              <p class="tab m-0 text-xs" style="color: var(--muted);">
+                Last time — {perf?.weight} lb × {perf?.reps.join(' · ')}
+              </p>
+            {/if}
+          </div>
+
+          <div class="flex flex-1 flex-col md:mt-6 md:flex-none">
+            <div class="mt-3 flex flex-col md:mt-0">
+              {@render weightRow(
+                step.exercise,
+                `lb${step.exercise.weightNote ? ` · ${step.exercise.weightNote}` : ''}`,
+                true
+              )}
+              <div
+                class="hairline-t hairline-b flex items-center justify-between py-4"
+                style="min-height: 84px;"
+              >
+                <div class="flex flex-col gap-0.5">
+                  <span class="row-label">Reps</span>
+                  <span class="row-sub"
+                    >{step.exercise.perSide ? `per ${step.exercise.perSide}` : 'this set'}</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    class="stepper"
+                    onclick={() => (repsInput = Math.max(0, repsInput - 1))}
+                    aria-label="Decrease reps"
+                  >
+                    {@render iconMinus('#f2f3ea')}
+                  </button>
+                  <span class="display num-display tab">{repsInput}</span>
+                  <button
+                    type="button"
+                    class="stepper"
+                    onclick={() => (repsInput = repsInput + 1)}
+                    aria-label="Increase reps"
+                  >
+                    {@render iconPlus('#f2f3ea')}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-auto flex flex-col gap-2.5 pt-4">
+              <button type="button" class="btn-accent h-16" onclick={() => advance(true)}>
+                <span class="display text-base tracking-[2.4px]">Log set</span>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
+                  ><path d="M4 10l4 4 8-8" stroke="#0e0f0d" stroke-width="2.4" /></svg
+                >
+              </button>
+              <button
+                type="button"
+                class="h-11 bg-transparent text-[11px] font-bold uppercase tracking-[2px]"
+                style="color: var(--muted2); border: 0; cursor: pointer;"
+                onclick={() => advance(false)}
+              >
+                Skip set
+              </button>
+              <div class="card flex items-center gap-2.5 px-3.5 py-3">
+                <span
+                  class="shrink-0 text-[9px] font-bold uppercase tracking-[1.8px]"
+                  style="color: var(--accent);">Up next →</span
+                >
+                <span class="text-xs" style="color: #c9ccbb;">{nextUpText}</span>
+              </div>
+            </div>
+          </div>
+        {:else if phase === 'rest' && step}
+          <div class="flex flex-col md:mt-2">
+            <div class="flex flex-col items-center gap-1.5 pt-11 md:pt-6">
+              <span class="text-xs font-bold uppercase tracking-[4px]" style="color: var(--muted2);"
+                >Rest</span
+              >
+              <span class="display rest-countdown tab" style="color: var(--accent);"
+                >{formatTime(restRemaining)}</span
+              >
+            </div>
+            <div class="stripes mt-6 flex h-3">
+              <div
+                style="width: {restTotal
+                  ? Math.round((restRemaining / restTotal) * 100)
+                  : 0}%; background: var(--accent); transition: width 0.3s;"
+              ></div>
+            </div>
+            <div class="mt-4 flex gap-2.5">
+              <button
+                type="button"
+                class="btn-ghost h-[52px] flex-1 text-[13px] font-bold tracking-[1.5px]"
+                onclick={() => adjustRest(-15)}
+              >
+                −15s
+              </button>
+              <button
+                type="button"
+                class="btn-ghost h-[52px] flex-1 text-[13px] font-bold tracking-[1.5px]"
+                onclick={() => adjustRest(30)}
+              >
+                +30s
+              </button>
+              <button type="button" class="btn-accent h-[52px] flex-[1.4]" onclick={skipRest}>
+                <span class="display text-xs tracking-[2px]">Skip rest</span>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none"
+                  ><path d="M6 4l6 6-6 6M14 4v12" stroke="#0e0f0d" stroke-width="2.2" /></svg
+                >
+              </button>
+            </div>
+          </div>
+
+          <div class="card mt-auto flex flex-col gap-3 px-4 py-[18px] md:mt-2">
+            <div class="flex items-center gap-2.5">
+              <span
+                class="text-[9px] font-bold uppercase tracking-[1.8px]"
+                style="color: var(--accent);">Up next</span
+              >
+              <span class="row-label" style="color: var(--muted2);"
+                >{step.blockLabel} — Set {step.setNumber} of {step.totalSets}</span
+              >
+              {#if step}
+                {@const restEx = step.exercise}
+                <button
+                  type="button"
+                  class="form-btn ml-auto"
+                  onclick={() => (formExercise = restEx)}
+                >
+                  Form
+                </button>
+              {/if}
+            </div>
+            <span class="display text-2xl leading-none">{step.exercise.name}</span>
+            <span class="text-xs" style="color: var(--muted);">
+              {repsLabel(step.exercise)}{step.partnerName
+                ? ` · superset with ${step.partnerName}`
+                : ''}
+            </span>
+            <div class="hairline-t flex items-center justify-between pt-3.5">
+              <div class="flex items-baseline gap-2">
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step={step.exercise.weightStep}
+                  bind:value={weights[step.exercise.id]}
+                  onblur={() => step && sanitizeWeight(step.exercise)}
+                  aria-label="Weight in pounds"
+                  class="display num-input-sm tab"
+                />
+                <span class="row-sub"
+                  >lb{step.exercise.weightNote ? ` · ${step.exercise.weightNote}` : ''}</span
+                >
+              </div>
+              <div class="flex gap-2.5">
+                <button
+                  type="button"
+                  class="stepper-sm"
+                  onclick={() => step && adjustWeight(step.exercise, -1)}
+                  aria-label="Decrease weight"
+                >
+                  {@render iconMinus('#f2f3ea')}
+                </button>
+                <button
+                  type="button"
+                  class="stepper-sm"
+                  onclick={() => step && adjustWeight(step.exercise, 1)}
+                  aria-label="Increase weight"
+                >
+                  {@render iconPlus('#f2f3ea')}
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
+    {:else if screen === 'summary' && finished}
+      <div
+        class="flex flex-1 flex-col md:grid md:grid-cols-2 md:content-start md:items-start md:gap-x-10"
+      >
+        <div class="flex flex-col gap-2 pt-2 md:col-span-2">
+          <p class="eyebrow m-0">
+            {shortDate(finished.date)} · {formatTime(finished.durationSec)} total · {finished.sets
+              .length} sets
+          </p>
+          <h1 class="display m-0 text-[38px] leading-[0.96]">
+            Workout {finished.workout}.<br class="md:hidden" />
+            <span style="color: var(--accent);">Done.</span>
+          </h1>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2">
+          <p class="eyebrow m-0 text-[10px]">Muscles exercised</p>
+          <div class="flex items-start gap-4">
+            <MuscleMap muscles={sessionMuscles} width={55} />
+            <div class="flex flex-1 flex-wrap content-start gap-1.5">
+              {#each sessionMuscles as m (m)}
                 <span class="chip">{m}</span>
               {/each}
             </div>
           </div>
-          {#if lastPerf(step.exercise.id)}
-            {@const perf = lastPerf(step.exercise.id)}
-            <p class="tab m-0 text-xs" style="color: var(--muted);">
-              Last time — {perf?.weight} lb × {perf?.reps.join(' · ')}
-            </p>
-          {/if}
         </div>
 
-        <div class="mt-3 flex flex-col">
-          {@render weightRow(
-            step.exercise,
-            `lb${step.exercise.weightNote ? ` · ${step.exercise.weightNote}` : ''}`,
-            true
-          )}
-          <div
-            class="hairline-t hairline-b flex items-center justify-between py-4"
-            style="min-height: 84px;"
-          >
-            <div class="flex flex-col gap-0.5">
-              <span class="row-label">Reps</span>
-              <span class="row-sub"
-                >{step.exercise.perSide ? `per ${step.exercise.perSide}` : 'this set'}</span
-              >
-            </div>
-            <div class="flex items-center gap-3">
-              <button
-                type="button"
-                class="stepper"
-                onclick={() => (repsInput = Math.max(0, repsInput - 1))}
-                aria-label="Decrease reps"
-              >
-                {@render iconMinus('#f2f3ea')}
-              </button>
-              <span class="display num-display tab">{repsInput}</span>
-              <button
-                type="button"
-                class="stepper"
-                onclick={() => (repsInput = repsInput + 1)}
-                aria-label="Increase reps"
-              >
-                {@render iconPlus('#f2f3ea')}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-auto flex flex-col gap-2.5 pt-4">
-          <button type="button" class="btn-accent h-16" onclick={() => advance(true)}>
-            <span class="display text-base tracking-[2.4px]">Log set</span>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
-              ><path d="M4 10l4 4 8-8" stroke="#0e0f0d" stroke-width="2.4" /></svg
+        <div class="mt-4 flex flex-col">
+          {#each summaryRows as row, i (row.ex.id)}
+            <div
+              class="hairline-t flex flex-col gap-1 py-3 {i === summaryRows.length - 1
+                ? 'hairline-b'
+                : ''}"
             >
-          </button>
-          <button
-            type="button"
-            class="h-11 bg-transparent text-[11px] font-bold uppercase tracking-[2px]"
-            style="color: var(--muted2); border: 0; cursor: pointer;"
-            onclick={() => advance(false)}
-          >
-            Skip set
-          </button>
-          <div class="card flex items-center gap-2.5 px-3.5 py-3">
-            <span
-              class="shrink-0 text-[9px] font-bold uppercase tracking-[1.8px]"
-              style="color: var(--accent);">Up next →</span
-            >
-            <span class="text-xs" style="color: #c9ccbb;">{nextUpText}</span>
-          </div>
-        </div>
-      {:else if phase === 'rest' && step}
-        <div class="flex flex-col items-center gap-1.5 pt-11">
-          <span class="text-xs font-bold uppercase tracking-[4px]" style="color: var(--muted2);"
-            >Rest</span
-          >
-          <span class="display rest-countdown tab" style="color: var(--accent);"
-            >{formatTime(restRemaining)}</span
-          >
-        </div>
-        <div class="stripes mt-6 flex h-3">
-          <div
-            style="width: {restTotal
-              ? Math.round((restRemaining / restTotal) * 100)
-              : 0}%; background: var(--accent); transition: width 0.3s;"
-          ></div>
-        </div>
-        <div class="mt-4 flex gap-2.5">
-          <button
-            type="button"
-            class="btn-ghost h-[52px] flex-1 text-[13px] font-bold tracking-[1.5px]"
-            onclick={() => adjustRest(-15)}
-          >
-            −15s
-          </button>
-          <button
-            type="button"
-            class="btn-ghost h-[52px] flex-1 text-[13px] font-bold tracking-[1.5px]"
-            onclick={() => adjustRest(30)}
-          >
-            +30s
-          </button>
-          <button type="button" class="btn-accent h-[52px] flex-[1.4]" onclick={skipRest}>
-            <span class="display text-xs tracking-[2px]">Skip rest</span>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"
-              ><path d="M6 4l6 6-6 6M14 4v12" stroke="#0e0f0d" stroke-width="2.2" /></svg
-            >
-          </button>
-        </div>
-
-        <div class="card mt-auto flex flex-col gap-3 px-4 py-[18px]">
-          <div class="flex items-center gap-2.5">
-            <span
-              class="text-[9px] font-bold uppercase tracking-[1.8px]"
-              style="color: var(--accent);">Up next</span
-            >
-            <span class="row-label" style="color: var(--muted2);"
-              >{step.blockLabel} — Set {step.setNumber} of {step.totalSets}</span
-            >
-          </div>
-          <span class="display text-2xl leading-none">{step.exercise.name}</span>
-          <span class="text-xs" style="color: var(--muted);">
-            {repsLabel(step.exercise)}{step.partnerName
-              ? ` · superset with ${step.partnerName}`
-              : ''}
-          </span>
-          <div class="hairline-t flex items-center justify-between pt-3.5">
-            <div class="flex items-baseline gap-2">
-              <input
-                type="number"
-                inputmode="decimal"
-                min="0"
-                step={step.exercise.weightStep}
-                bind:value={weights[step.exercise.id]}
-                onblur={() => step && sanitizeWeight(step.exercise)}
-                aria-label="Weight in pounds"
-                class="display num-input-sm tab"
-              />
-              <span class="row-sub"
-                >lb{step.exercise.weightNote ? ` · ${step.exercise.weightNote}` : ''}</span
-              >
-            </div>
-            <div class="flex gap-2.5">
-              <button
-                type="button"
-                class="stepper-sm"
-                onclick={() => step && adjustWeight(step.exercise, -1)}
-                aria-label="Decrease weight"
-              >
-                {@render iconMinus('#f2f3ea')}
-              </button>
-              <button
-                type="button"
-                class="stepper-sm"
-                onclick={() => step && adjustWeight(step.exercise, 1)}
-                aria-label="Increase weight"
-              >
-                {@render iconPlus('#f2f3ea')}
-              </button>
-            </div>
-          </div>
-        </div>
-      {/if}
-    {:else if screen === 'summary' && finished}
-      <div class="flex flex-col gap-2 pt-2">
-        <p class="eyebrow m-0">
-          {shortDate(finished.date)} · {formatTime(finished.durationSec)} total · {finished.sets
-            .length} sets
-        </p>
-        <h1 class="display m-0 text-[38px] leading-[0.96]">
-          Workout {finished.workout}.<br /><span style="color: var(--accent);">Done.</span>
-        </h1>
-      </div>
-
-      <div class="mt-4 flex flex-col gap-2">
-        <p class="eyebrow m-0 text-[10px]">Muscles exercised</p>
-        <div class="flex items-start gap-4">
-          <MuscleMap muscles={sessionMuscles} width={55} />
-          <div class="flex flex-1 flex-wrap content-start gap-1.5">
-            {#each sessionMuscles as m (m)}
-              <span class="chip">{m}</span>
-            {/each}
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-4 flex flex-col">
-        {#each summaryRows as row, i (row.ex.id)}
-          <div
-            class="hairline-t flex flex-col gap-1 py-3 {i === summaryRows.length - 1
-              ? 'hairline-b'
-              : ''}"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex flex-col gap-0.5">
-                <span class="text-[13px] font-bold">{row.ex.name}</span>
-                <span class="tab text-[11px]" style="color: var(--muted);">
-                  {row.logged[0].weight} lb × {row.logged.map((s) => s.reps).join(' · ')}
-                </span>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[13px] font-bold">{row.ex.name}</span>
+                  <span class="tab text-[11px]" style="color: var(--muted);">
+                    {row.logged[0].weight} lb × {row.logged.map((s) => s.reps).join(' · ')}
+                  </span>
+                </div>
+                {#if row.hitTop}
+                  {#if bumped[row.ex.id]}
+                    <span
+                      class="text-[11px] font-bold uppercase tracking-[1.4px]"
+                      style="color: var(--accent);"
+                    >
+                      ✓ {weights[row.ex.id]} lb next
+                    </span>
+                  {:else}
+                    <button
+                      type="button"
+                      class="btn-accent h-10 whitespace-nowrap px-2.5 text-[9px] font-bold uppercase tracking-[1.4px]"
+                      onclick={() => bumpWeight(row.ex)}
+                    >
+                      +{row.ex.weightStep} lb next
+                    </button>
+                  {/if}
+                {/if}
               </div>
               {#if row.hitTop}
-                {#if bumped[row.ex.id]}
-                  <span
-                    class="text-[11px] font-bold uppercase tracking-[1.4px]"
-                    style="color: var(--accent);"
-                  >
-                    ✓ {weights[row.ex.id]} lb next
-                  </span>
-                {:else}
-                  <button
-                    type="button"
-                    class="btn-accent h-10 whitespace-nowrap px-2.5 text-[9px] font-bold uppercase tracking-[1.4px]"
-                    onclick={() => bumpWeight(row.ex)}
-                  >
-                    +{row.ex.weightStep} lb next
-                  </button>
-                {/if}
+                <p class="m-0 text-[11px]" style="color: var(--accent);">
+                  Hit the top of the rep range on every set — add weight next session.
+                </p>
+              {/if}
+              {#if row.ex.capNote && (weights[row.ex.id] ?? 0) >= row.ex.capNote.atWeight}
+                <p class="m-0 text-[11px]" style="color: #ff6a3d;">{row.ex.capNote.note}</p>
               {/if}
             </div>
-            {#if row.hitTop}
-              <p class="m-0 text-[11px]" style="color: var(--accent);">
-                Hit the top of the rep range on every set — add weight next session.
-              </p>
-            {/if}
-            {#if row.ex.capNote && (weights[row.ex.id] ?? 0) >= row.ex.capNote.atWeight}
-              <p class="m-0 text-[11px]" style="color: #ff6a3d;">{row.ex.capNote.note}</p>
-            {/if}
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
 
-      <button type="button" class="btn-accent mt-auto h-14" onclick={() => (screen = 'home')}>
-        <span class="display text-sm tracking-[2.2px]">Done</span>
-      </button>
+        <button
+          type="button"
+          class="btn-accent mt-auto h-14 md:col-span-2 md:mt-6"
+          onclick={() => (screen = 'home')}
+        >
+          <span class="display text-sm tracking-[2.2px]">Done</span>
+        </button>
+      </div>
     {/if}
   </div>
+
+  {#if formExercise}
+    <FormSheet exercise={formExercise} onclose={() => (formExercise = null)} />
+  {/if}
 </div>
 
 <style>
@@ -1179,6 +1266,41 @@
     font-weight: 700;
     letter-spacing: 1.6px;
     text-transform: uppercase;
+  }
+  .ex-link {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: #c9ccbb;
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+    text-decoration: underline dotted var(--muted2);
+    text-underline-offset: 3px;
+  }
+  .ex-link:hover {
+    color: var(--accent);
+  }
+  .form-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 12px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    color: var(--chipt);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .form-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
   .tag-outline {
     padding: 4px 8px;
