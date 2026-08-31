@@ -22,8 +22,8 @@ jobs:
       - name: Install, build, and upload your site
         uses: withastro/action@v2
         with:
-          node-version: 20 # The specific version of Node that should be used to build your site
-          package-manager: pnpm # The Node package manager that should be used to install dependencies
+          node-version: 22 # The specific version of Node that should be used to build your site
+          package-manager: pnpm@10.33.0 # Pinned: unpinned pnpm resolves to 11.x, which needs Node >= 22.13
 
   deploy:
     needs: build
