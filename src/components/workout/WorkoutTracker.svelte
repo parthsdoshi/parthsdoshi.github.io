@@ -6,6 +6,7 @@
     workoutMuscles,
     repsLabel,
     formatTime,
+    plannedSetsFor,
     type Exercise,
     type LoggedSet,
     type Session,
@@ -650,7 +651,9 @@
       for (const ex of blockExercises(block)) {
         const logged = finished.sets.filter((s) => s.exerciseId === ex.id);
         if (!logged.length) continue;
-        const hitTop = logged.length >= block.sets && logged.every((s) => s.reps >= ex.repsMax);
+        const hitTop =
+          logged.length >= plannedSetsFor(block, ex.id) &&
+          logged.every((s) => s.reps >= ex.repsMax);
         rows.push({ ex, logged, hitTop });
       }
     }
@@ -832,7 +835,11 @@
                   >
                   <span class="ex-row-name">{ex.name}</span>
                   <span class="tab ex-row-reps"
-                    >{block.sets}×{repRange(ex)}{ex.perSide ? ` / ${ex.perSide}` : ''}</span
+                    >{plannedSetsFor(block, ex.id)}×{repRange(ex)}{ex.repUnit === 'sec'
+                      ? 's'
+                      : ex.perSide
+                        ? ` / ${ex.perSide}`
+                        : ''}</span
                   >
                   <svg
                     class="shrink-0"
@@ -976,7 +983,7 @@
 
         {#if runningLong}
           <p class="m-0 mt-3 text-xs md:col-span-2" style="color: #ff6a3d;">
-            Running long — the cut is exercise 4, never rest on the squat or press.
+            Running long — cut from the bottom of the list, never rest on the squat or press.
           </p>
         {/if}
 
@@ -1062,7 +1069,10 @@
             {#if lastPerf(step.exercise.id)}
               {@const perf = lastPerf(step.exercise.id)}
               <p class="tab m-0 text-xs" style="color: var(--muted);">
-                Last time — {perf?.weight} lb × {perf?.reps.join(' · ')}
+                Last time — {perf?.weight} lb × {perf?.reps.join(' · ')}{step.exercise.repUnit ===
+                'sec'
+                  ? ' sec'
+                  : ''}
               </p>
             {/if}
             {#if lastNoteFor(step.exercise.id)}
@@ -1092,16 +1102,24 @@
                 style="min-height: 84px;"
               >
                 <div class="flex flex-col gap-0.5">
-                  <span class="row-label">Reps</span>
+                  <span class="row-label">{step.exercise.repUnit === 'sec' ? 'Time' : 'Reps'}</span>
                   <span class="row-sub"
-                    >{step.exercise.perSide ? `per ${step.exercise.perSide}` : 'this set'}</span
+                    >{step.exercise.repUnit === 'sec'
+                      ? 'seconds'
+                      : step.exercise.perSide
+                        ? `per ${step.exercise.perSide}`
+                        : 'this set'}</span
                   >
                 </div>
                 <div class="flex items-center gap-3">
                   <button
                     type="button"
                     class="stepper"
-                    onclick={() => (repsInput = Math.max(0, repsInput - 1))}
+                    onclick={() =>
+                      (repsInput = Math.max(
+                        0,
+                        repsInput - (step?.exercise.repUnit === 'sec' ? 5 : 1)
+                      ))}
                     aria-label="Decrease reps"
                   >
                     {@render iconMinus('#f2f3ea')}
@@ -1110,7 +1128,8 @@
                   <button
                     type="button"
                     class="stepper"
-                    onclick={() => (repsInput = repsInput + 1)}
+                    onclick={() =>
+                      (repsInput = repsInput + (step?.exercise.repUnit === 'sec' ? 5 : 1))}
                     aria-label="Increase reps"
                   >
                     {@render iconPlus('#f2f3ea')}
@@ -1298,7 +1317,10 @@
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[13px] font-bold">{row.ex.name}</span>
                   <span class="tab text-[11px]" style="color: var(--muted);">
-                    {row.logged[0].weight} lb × {row.logged.map((s) => s.reps).join(' · ')}
+                    {row.logged[0].weight} lb × {row.logged.map((s) => s.reps).join(' · ')}{row.ex
+                      .repUnit === 'sec'
+                      ? ' sec'
+                      : ''}
                   </span>
                 </div>
                 {#if row.hitTop}
