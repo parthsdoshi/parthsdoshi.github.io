@@ -34,6 +34,7 @@ const { title, description = "Parth's personal website", noindex = false } = Ast
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <slot name="head" />
   </head>
   <body class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <slot />

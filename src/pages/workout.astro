@@ -1,8 +1,15 @@
 ---
-import PageLayout from '../layouts/PageLayout.astro';
+import Layout from '../layouts/Layout.astro';
 import WorkoutTracker from '../components/workout/WorkoutTracker.svelte';
 ---
 
-<PageLayout title="Workout | Parth Doshi" description="Personal workout tracker" noindex>
+<Layout title="Workout | Parth Doshi" description="Personal workout tracker" noindex>
+  <link slot="head" rel="preconnect" href="https://fonts.googleapis.com" />
+  <link slot="head" rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    slot="head"
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap"
+  />
   <WorkoutTracker client:only="svelte" />
-</PageLayout>
+</Layout>
