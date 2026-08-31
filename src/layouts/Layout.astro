@@ -4,9 +4,10 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
+  noindex?: boolean;
 }
 
-const { title, description = "Parth's personal website" } = Astro.props;
+const { title, description = "Parth's personal website", noindex = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -32,6 +33,7 @@ const { title, description = "Parth's personal website" } = Astro.props;
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
   </head>
   <body class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <slot />

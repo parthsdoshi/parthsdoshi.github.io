@@ -15,7 +15,9 @@ export default defineConfig({
       syntaxHighlight: 'shiki',
       shikiConfig: { theme: 'github-dark' },
     }),
-    sitemap(),
+    sitemap({
+      filter: (page) => !page.includes('/workout'),
+    }),
   ],
 
   vite: {
