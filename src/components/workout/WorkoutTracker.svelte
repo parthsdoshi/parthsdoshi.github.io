@@ -735,33 +735,30 @@
             </div>
             <span class="tag-accent">Up next</span>
           </div>
-          <div class="flex flex-col gap-[7px] text-[13px]" style="color: #c9ccbb;">
+          <div class="flex flex-col">
             {#each suggestedWorkout.blocks as block (block.label)}
-              <div class="flex gap-2.5">
-                <span class="w-[26px] shrink-0 text-[11px] font-bold" style="color: var(--muted2);"
-                  >{block.kind === 'single' ? block.label : `${block.label}ab`}</span
-                >
-                <span class="flex flex-wrap items-baseline gap-x-1.5">
-                  {#if block.kind === 'single'}
-                    {@const ex = block.exercise}
-                    <button type="button" class="ex-link" onclick={() => (formExercise = ex)}
-                      >{ex.name}</button
-                    >
-                    <span>— {block.sets}×{repRange(ex)}{ex.perSide ? ` / ${ex.perSide}` : ''}</span>
-                  {:else}
-                    {@const a = block.exercises[0]}
-                    {@const b = block.exercises[1]}
-                    <button type="button" class="ex-link" onclick={() => (formExercise = a)}
-                      >{a.name}</button
-                    >
-                    <span>+</span>
-                    <button type="button" class="ex-link" onclick={() => (formExercise = b)}
-                      >{b.name}</button
-                    >
-                    <span>— {block.sets} rounds</span>
-                  {/if}
-                </span>
-              </div>
+              {#each blockExercises(block) as ex, i (ex.id)}
+                <button type="button" class="ex-row" onclick={() => (formExercise = ex)}>
+                  <span class="ex-row-label"
+                    >{block.kind === 'single'
+                      ? block.label
+                      : block.label + (i === 0 ? 'a' : 'b')}</span
+                  >
+                  <span class="ex-row-name">{ex.name}</span>
+                  <span class="tab ex-row-reps"
+                    >{block.sets}×{repRange(ex)}{ex.perSide ? ` / ${ex.perSide}` : ''}</span
+                  >
+                  <svg
+                    class="shrink-0"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    ><path d="M7 4l6 6-6 6" stroke="#6f7361" stroke-width="2" /></svg
+                  >
+                </button>
+              {/each}
             {/each}
           </div>
           {@render chips(workoutMuscles(suggestedWorkout))}
@@ -1267,27 +1264,50 @@
     letter-spacing: 1.6px;
     text-transform: uppercase;
   }
-  .ex-link {
+  .ex-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 4px 2px;
     background: transparent;
     border: 0;
-    padding: 0;
+    border-top: 1px solid var(--line2);
+    border-radius: 0;
     cursor: pointer;
-    color: #c9ccbb;
-    font-size: 13px;
     font-family: inherit;
     text-align: left;
-    text-decoration: underline dotted var(--muted2);
-    text-underline-offset: 3px;
   }
-  .ex-link:hover {
+  .ex-row:first-child {
+    border-top: 0;
+  }
+  .ex-row-label {
+    width: 26px;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted2);
+  }
+  .ex-row-name {
+    flex: 1;
+    font-size: 13px;
+    color: #c9ccbb;
+  }
+  .ex-row-reps {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ex-row:hover .ex-row-name {
     color: var(--accent);
   }
   .form-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 36px;
-    padding: 0 12px;
+    height: 44px;
+    padding: 0 14px;
     background: transparent;
     border: 1px solid var(--line);
     border-radius: 0;

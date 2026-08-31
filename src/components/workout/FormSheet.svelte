@@ -11,10 +11,14 @@
 
   const guide = $derived(FORM_GUIDES[exercise.id]);
   let hiddenImages = $state<Record<string, boolean>>({});
+  let zoomedImage = $state<string | null>(null);
 
   $effect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onclose();
+      if (e.key === 'Escape') {
+        if (zoomedImage) zoomedImage = null;
+        else onclose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -42,17 +46,22 @@
     {/if}
 
     {#if guide}
-      <div class="mt-3 grid grid-cols-2 gap-2">
+      <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
         {#each guide.images as img (img)}
           {#if !hiddenImages[img]}
-            <img
-              src="{FORM_IMG_BASE}{img}"
-              alt="{exercise.name} demonstration"
-              loading="lazy"
-              class="w-full border"
-              style="border-color: var(--line); background: #fff;"
-              onerror={() => (hiddenImages[img] = true)}
-            />
+            <button
+              type="button"
+              class="img-btn"
+              onclick={() => (zoomedImage = FORM_IMG_BASE + img)}
+              aria-label="Zoom demonstration photo"
+            >
+              <img
+                src="{FORM_IMG_BASE}{img}"
+                alt="{exercise.name} demonstration"
+                loading="lazy"
+                onerror={() => (hiddenImages[img] = true)}
+              />
+            </button>
           {/if}
         {/each}
       </div>
@@ -68,13 +77,24 @@
         {/each}
       </ol>
       <p class="m-0 mt-3 text-[10px]" style="color: var(--muted2);">
-        Guide: “{guide.source}” — Free Exercise DB (public domain)
+        Guide: “{guide.source}” — Free Exercise DB (public domain) · tap a photo to zoom
       </p>
     {:else}
       <p class="m-0 mt-3 text-sm" style="color: var(--muted);">No guide for this one yet.</p>
     {/if}
   </div>
 </div>
+
+{#if zoomedImage}
+  <button
+    type="button"
+    class="lightbox"
+    onclick={() => (zoomedImage = null)}
+    aria-label="Close zoomed photo"
+  >
+    <img src={zoomedImage} alt="{exercise.name} demonstration, zoomed" />
+  </button>
+{/if}
 
 <style>
   .overlay {
@@ -85,21 +105,28 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    padding: 16px;
+    padding: 10px;
   }
   @media (min-width: 768px) {
     .overlay {
       align-items: center;
+      padding: 24px;
     }
   }
   .sheet {
     width: 100%;
-    max-width: 420px;
-    max-height: 85vh;
+    max-width: 440px;
+    max-height: 92dvh;
     overflow-y: auto;
     background: var(--card, #161813);
     border: 1px solid var(--line, #2b2e25);
     padding: 18px 16px 16px;
+  }
+  @media (min-width: 768px) {
+    .sheet {
+      max-width: 600px;
+      padding: 22px 20px 20px;
+    }
   }
   .close-btn {
     width: 44px;
@@ -113,7 +140,42 @@
     border-radius: 0;
     cursor: pointer;
   }
+  .img-btn {
+    display: block;
+    width: 100%;
+    padding: 0;
+    background: #fff;
+    border: 1px solid var(--line, #2b2e25);
+    border-radius: 0;
+    cursor: zoom-in;
+  }
+  .img-btn img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    object-fit: contain;
+  }
   .steps {
     list-style: none;
+  }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    width: 100%;
+    background: rgba(6, 7, 5, 0.96);
+    border: 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background: #fff;
   }
 </style>
