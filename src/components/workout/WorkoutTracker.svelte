@@ -436,6 +436,100 @@
     weights[ex.id] = Number.isFinite(v) ? Math.max(0, roundWeight(v)) : 0;
   }
 
+  // ---- Backup ----
+
+  let importStatus = $state('');
+  let importFileInput = $state<HTMLInputElement | null>(null);
+
+  function exportData() {
+    const payload = {
+      app: 'workout-tracker',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      weights,
+      history,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workout-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function isLoggedSet(x: unknown): x is LoggedSet {
+    if (typeof x !== 'object' || x === null) return false;
+    const s = x as Record<string, unknown>;
+    return (
+      typeof s.exerciseId === 'string' &&
+      typeof s.name === 'string' &&
+      typeof s.blockLabel === 'string' &&
+      typeof s.setNumber === 'number' &&
+      typeof s.weight === 'number' &&
+      typeof s.reps === 'number'
+    );
+  }
+
+  function isSession(x: unknown): x is Session {
+    if (typeof x !== 'object' || x === null) return false;
+    const s = x as Record<string, unknown>;
+    return (
+      typeof s.date === 'string' &&
+      (s.workout === 'A' || s.workout === 'B') &&
+      typeof s.durationSec === 'number' &&
+      Array.isArray(s.sets)
+    );
+  }
+
+  async function importData(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      const data = (parsed ?? {}) as { weights?: unknown; history?: unknown };
+      const importedHistory = (Array.isArray(data.history) ? data.history : [])
+        .filter(isSession)
+        .map((s) => ({ ...s, sets: s.sets.filter(isLoggedSet) }));
+      const importedWeights: Record<string, number> = {};
+      if (data.weights && typeof data.weights === 'object') {
+        for (const [k, v] of Object.entries(data.weights)) {
+          if (typeof v === 'number' && Number.isFinite(v)) importedWeights[k] = Math.max(0, v);
+        }
+      }
+      if (!importedHistory.length && !Object.keys(importedWeights).length) {
+        importStatus = 'Import failed — that is not a workout backup file.';
+        return;
+      }
+      if (
+        !confirm(
+          `Replace current data (${history.length} sessions) with this backup (${importedHistory.length} sessions)?`
+        )
+      ) {
+        importStatus = '';
+        return;
+      }
+      importedHistory.sort((a, b) => a.date.localeCompare(b.date));
+      history = importedHistory;
+      const merged = { ...importedWeights };
+      for (const w of WORKOUTS) {
+        for (const block of w.blocks) {
+          for (const ex of blockExercises(block)) {
+            if (!(ex.id in merged)) merged[ex.id] = ex.defaultWeight;
+          }
+        }
+      }
+      weights = merged;
+      importStatus = `Imported ${importedHistory.length} session${importedHistory.length === 1 ? '' : 's'}.`;
+    } catch {
+      importStatus = 'Import failed — could not read that file.';
+    }
+  }
+
   // ---- Summary ----
 
   interface SummaryRow {
@@ -653,6 +747,47 @@
         {/each}
       </div>
     {/if}
+
+    <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Backup</h2>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        Your log lives only in this browser. Export a JSON backup to keep it safe or move it to
+        another device.
+      </p>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="flex-1 h-11 rounded-xl bg-gray-200 dark:bg-gray-700 text-sm font-semibold text-gray-900 dark:text-white active:scale-[0.98]"
+          onclick={exportData}
+        >
+          Export data
+        </button>
+        <button
+          type="button"
+          class="flex-1 h-11 rounded-xl bg-gray-200 dark:bg-gray-700 text-sm font-semibold text-gray-900 dark:text-white active:scale-[0.98]"
+          onclick={() => importFileInput?.click()}
+        >
+          Import backup
+        </button>
+        <input
+          type="file"
+          accept=".json,application/json"
+          class="hidden"
+          bind:this={importFileInput}
+          onchange={importData}
+          aria-label="Import backup file"
+        />
+      </div>
+      {#if importStatus}
+        <p
+          class="text-sm mt-2 {importStatus.startsWith('Import failed')
+            ? 'text-red-600 dark:text-red-400'
+            : 'text-green-700 dark:text-green-400'}"
+        >
+          {importStatus}
+        </p>
+      {/if}
+    </div>
   {:else if screen === 'active' && workout}
     <div class="flex items-center justify-between mt-4 mb-2">
       <div class="font-bold text-gray-900 dark:text-white">Workout {workout.id}</div>
