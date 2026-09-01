@@ -26,6 +26,7 @@
     triceps: ['Triceps'],
     glutes: ['Glutes'],
     hamstrings: ['Hamstrings'],
+    forearms: ['Forearms', 'Grip'],
   };
 
   const FRONT: Part[] = [
@@ -36,8 +37,8 @@
     { points: '53,27 42,29 42,46 55,42', group: 'chest' },
     { points: '12,42 22,40 20,58 10,56', group: 'biceps' },
     { points: '72,42 62,40 64,58 74,56', group: 'biceps' },
-    { points: '9,58 19,60 16,76 7,72' },
-    { points: '75,58 65,60 68,76 77,72' },
+    { points: '9,58 19,60 16,76 7,72', group: 'forearms' },
+    { points: '75,58 65,60 68,76 77,72', group: 'forearms' },
     { points: '31,48 53,48 51,78 33,78', group: 'core' },
     { points: '32,80 52,80 54,88 30,88' },
     { points: '30,90 41,90 40,118 28,114', group: 'quads' },
@@ -55,8 +56,8 @@
     { points: '34,56 50,56 48,72 36,72', group: 'lower-back' },
     { points: '12,42 22,40 20,58 10,56', group: 'triceps' },
     { points: '72,42 62,40 64,58 74,56', group: 'triceps' },
-    { points: '9,58 19,60 16,76 7,72' },
-    { points: '75,58 65,60 68,76 77,72' },
+    { points: '9,58 19,60 16,76 7,72', group: 'forearms' },
+    { points: '75,58 65,60 68,76 77,72', group: 'forearms' },
     { points: '31,76 42,76 41,90 29,88', group: 'glutes' },
     { points: '53,76 42,76 43,90 55,88', group: 'glutes' },
     { points: '29,92 40,92 39,118 28,114', group: 'hamstrings' },

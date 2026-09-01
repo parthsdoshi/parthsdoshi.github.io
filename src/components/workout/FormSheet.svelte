@@ -97,6 +97,13 @@
 {/if}
 
 <style>
+  .display {
+    font-family: 'Archivo Black', 'Arial Black', sans-serif;
+    text-transform: uppercase;
+  }
+  .tab {
+    font-variant-numeric: tabular-nums;
+  }
   .overlay {
     position: fixed;
     inset: 0;

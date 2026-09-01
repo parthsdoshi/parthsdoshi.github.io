@@ -6,6 +6,7 @@
     workoutMuscles,
     repsLabel,
     formatTime,
+    plannedSetsFor,
     type Exercise,
     type LoggedSet,
     type Session,
@@ -14,6 +15,7 @@
   } from './plan';
   import MuscleMap from './MuscleMap.svelte';
   import FormSheet from './FormSheet.svelte';
+  import SessionEditor from './SessionEditor.svelte';
 
   // SHA-256 of the password; the plaintext never ships in the bundle.
   const PASS_HASH = 'cad0535decc38b248b40e7aef9a1cfd91ce386fa5c46f05ea622649e7faf18fb';
@@ -31,6 +33,7 @@
     startedAt: number;
     restEndsAt: number;
     restTotal: number;
+    exerciseNotes?: Record<string, string>;
   }
 
   type Screen = 'lock' | 'home' | 'active' | 'summary';
@@ -58,9 +61,44 @@
   // Summary state
   let finished = $state<Session | null>(null);
   let bumped = $state<Record<string, boolean>>({});
+  let summaryNote = $state('');
+
+  // Notes jotted during the active session, keyed by exercise id
+  let sessionNotes = $state<Record<string, string>>({});
+  let noteOpen = $state(false);
 
   // Form guide sheet
   let formExercise = $state<Exercise | null>(null);
+
+  // History session editor
+  let editingIndex = $state<number | null>(null);
+  let editingDraft = $state<Session | null>(null);
+
+  function openSessionEditor(ses: Session) {
+    const idx = history.indexOf(ses);
+    if (idx < 0) return;
+    editingIndex = idx;
+    editingDraft = $state.snapshot(history[idx]) as Session;
+  }
+
+  function closeSessionEditor() {
+    editingIndex = null;
+    editingDraft = null;
+  }
+
+  function saveEditedSession(cleaned: Session) {
+    if (editingIndex !== null && editingIndex < history.length) {
+      history[editingIndex] = cleaned;
+    }
+    closeSessionEditor();
+  }
+
+  function deleteEditedSession() {
+    if (editingIndex !== null && editingIndex < history.length) {
+      history.splice(editingIndex, 1);
+    }
+    closeSessionEditor();
+  }
 
   let loaded = false;
 
@@ -126,6 +164,7 @@
       startedAt,
       restEndsAt,
       restTotal,
+      exerciseNotes: sessionNotes,
     };
     try {
       localStorage.setItem(KEY_ACTIVE, JSON.stringify(snap));
@@ -268,6 +307,14 @@
     return `${ds} · ${kind}`;
   });
 
+  function lastNoteFor(exId: string): string | null {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const note = history[i].exerciseNotes?.[exId];
+      if (note) return note;
+    }
+    return null;
+  }
+
   function lastPerf(exId: string): { date: string; weight: number; reps: number[] } | null {
     for (let i = history.length - 1; i >= 0; i--) {
       const ses = history[i];
@@ -312,6 +359,8 @@
     steps = buildSteps(def);
     stepIdx = 0;
     sets = [];
+    sessionNotes = {};
+    noteOpen = false;
     phase = 'warmup';
     startedAt = Date.now();
     restEndsAt = 0;
@@ -331,6 +380,7 @@
     stepIdx = Math.min(snap.stepIdx, steps.length - 1);
     phase = snap.phase;
     sets = snap.sets;
+    sessionNotes = snap.exerciseNotes ?? {};
     startedAt = snap.startedAt;
     restEndsAt = snap.restEndsAt;
     restTotal = snap.restTotal;
@@ -351,7 +401,15 @@
 
   function prepReps() {
     const s = steps[stepIdx];
-    if (s) repsInput = defaultReps(s.exercise, s.setNumber);
+    if (s) {
+      repsInput = defaultReps(s.exercise, s.setNumber);
+      noteOpen = !!sessionNotes[s.exercise.id]?.trim();
+    }
+  }
+
+  function toggleNote(exId: string) {
+    sessionNotes[exId] ??= '';
+    noteOpen = !noteOpen;
   }
 
   function startFirstSet() {
@@ -373,6 +431,7 @@
         weight: weights[s.exercise.id] ?? 0,
         reps: repsInput,
       });
+      sessionNotes[s.exercise.id] ??= '';
     }
     if (stepIdx >= steps.length - 1) {
       completeWorkout();
@@ -410,12 +469,19 @@
 
   function completeWorkout() {
     if (!workout) return;
+    const exNotes: Record<string, string> = {};
+    for (const [id, text] of Object.entries(sessionNotes)) {
+      const t = text.trim();
+      if (t) exNotes[id] = t;
+    }
     const session: Session = {
       date: new Date().toISOString(),
       workout: workout.id,
       durationSec: Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
       sets,
+      ...(Object.keys(exNotes).length ? { exerciseNotes: exNotes } : {}),
     };
+    summaryNote = '';
     if (session.sets.length) history.push(session);
     try {
       localStorage.removeItem(KEY_ACTIVE);
@@ -436,6 +502,15 @@
     if (sets.length === 0 || confirm('End workout and save what you logged so far?')) {
       completeWorkout();
     }
+  }
+
+  function finishSummary() {
+    const note = summaryNote.trim();
+    const idx = history.length - 1;
+    if (note && finished && idx >= 0 && history[idx].date === finished.date) {
+      history[idx] = { ...history[idx], note };
+    }
+    screen = 'home';
   }
 
   // ---- Weights ----
@@ -511,7 +586,19 @@
       const data = (parsed ?? {}) as { weights?: unknown; history?: unknown };
       const importedHistory = (Array.isArray(data.history) ? data.history : [])
         .filter(isSession)
-        .map((s) => ({ ...s, sets: s.sets.filter(isLoggedSet) }));
+        .map((s): Session => {
+          const exNotes = Object.fromEntries(
+            Object.entries(s.exerciseNotes ?? {}).filter(([, v]) => typeof v === 'string' && v)
+          );
+          return {
+            date: s.date,
+            workout: s.workout,
+            durationSec: s.durationSec,
+            sets: s.sets.filter(isLoggedSet),
+            ...(typeof s.note === 'string' && s.note ? { note: s.note } : {}),
+            ...(Object.keys(exNotes).length ? { exerciseNotes: exNotes } : {}),
+          };
+        });
       const importedWeights: Record<string, number> = {};
       if (data.weights && typeof data.weights === 'object') {
         for (const [k, v] of Object.entries(data.weights)) {
@@ -564,7 +651,9 @@
       for (const ex of blockExercises(block)) {
         const logged = finished.sets.filter((s) => s.exerciseId === ex.id);
         if (!logged.length) continue;
-        const hitTop = logged.length >= block.sets && logged.every((s) => s.reps >= ex.repsMax);
+        const hitTop =
+          logged.length >= plannedSetsFor(block, ex.id) &&
+          logged.every((s) => s.reps >= ex.repsMax);
         rows.push({ ex, logged, hitTop });
       }
     }
@@ -746,7 +835,11 @@
                   >
                   <span class="ex-row-name">{ex.name}</span>
                   <span class="tab ex-row-reps"
-                    >{block.sets}×{repRange(ex)}{ex.perSide ? ` / ${ex.perSide}` : ''}</span
+                    >{plannedSetsFor(block, ex.id)}×{repRange(ex)}{ex.repUnit === 'sec'
+                      ? 's'
+                      : ex.perSide
+                        ? ` / ${ex.perSide}`
+                        : ''}</span
                   >
                   <svg
                     class="shrink-0"
@@ -793,8 +886,11 @@
             <div class="mt-6 flex flex-col md:mt-4">
               <p class="eyebrow m-0 mb-1 text-[10px]">Recent</p>
               {#each history.slice(-5).reverse() as ses (ses.date)}
-                <div
-                  class="hairline-t flex items-center justify-between py-3.5 text-[13px] md:py-2.5"
+                <button
+                  type="button"
+                  class="ses-row"
+                  onclick={() => openSessionEditor(ses)}
+                  aria-label="Edit session: Workout {ses.workout}, {shortDate(ses.date)}"
                 >
                   <span class="font-bold"
                     >{ses.workout}
@@ -802,10 +898,18 @@
                       >— {shortDate(ses.date)}</span
                     ></span
                   >
-                  <span class="tab" style="color: var(--muted);"
+                  <span class="tab ml-auto" style="color: var(--muted);"
                     >{ses.sets.length} sets · {formatTime(ses.durationSec)}</span
                   >
-                </div>
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"
+                    ><path d="M7 4l6 6-6 6" stroke="#6f7361" stroke-width="2" /></svg
+                  >
+                </button>
+                {#if ses.note}
+                  <p class="m-0 -mt-1 pb-2.5 text-[11px] italic" style="color: var(--muted2);">
+                    “{ses.note}”
+                  </p>
+                {/if}
               {/each}
             </div>
           {/if}
@@ -879,7 +983,7 @@
 
         {#if runningLong}
           <p class="m-0 mt-3 text-xs md:col-span-2" style="color: #ff6a3d;">
-            Running long — the cut is exercise 4, never rest on the squat or press.
+            Running long — cut from the bottom of the list, never rest on the squat or press.
           </p>
         {/if}
 
@@ -926,13 +1030,21 @@
               {/if}
               {#if step}
                 {@const workEx = step.exercise}
-                <button
-                  type="button"
-                  class="form-btn ml-auto"
-                  onclick={() => (formExercise = workEx)}
-                >
-                  Form
-                </button>
+                <span class="ml-auto flex gap-1.5">
+                  <button
+                    type="button"
+                    class="form-btn"
+                    style={sessionNotes[workEx.id]?.trim()
+                      ? 'border-color: var(--accent); color: var(--accent);'
+                      : ''}
+                    onclick={() => toggleNote(workEx.id)}
+                  >
+                    Note
+                  </button>
+                  <button type="button" class="form-btn" onclick={() => (formExercise = workEx)}>
+                    Form
+                  </button>
+                </span>
               {/if}
             </div>
             <h2 class="display m-0 text-[36px] leading-[0.98]">{step.exercise.name}</h2>
@@ -957,8 +1069,24 @@
             {#if lastPerf(step.exercise.id)}
               {@const perf = lastPerf(step.exercise.id)}
               <p class="tab m-0 text-xs" style="color: var(--muted);">
-                Last time — {perf?.weight} lb × {perf?.reps.join(' · ')}
+                Last time — {perf?.weight} lb × {perf?.reps.join(' · ')}{step.exercise.repUnit ===
+                'sec'
+                  ? ' sec'
+                  : ''}
               </p>
+            {/if}
+            {#if lastNoteFor(step.exercise.id)}
+              <p class="m-0 text-xs italic" style="color: var(--muted);">
+                “{lastNoteFor(step.exercise.id)}” — last time
+              </p>
+            {/if}
+            {#if noteOpen}
+              <textarea
+                class="note-input"
+                placeholder="Note for this exercise…"
+                aria-label="Exercise note"
+                bind:value={sessionNotes[step.exercise.id]}
+              ></textarea>
             {/if}
           </div>
 
@@ -974,16 +1102,24 @@
                 style="min-height: 84px;"
               >
                 <div class="flex flex-col gap-0.5">
-                  <span class="row-label">Reps</span>
+                  <span class="row-label">{step.exercise.repUnit === 'sec' ? 'Time' : 'Reps'}</span>
                   <span class="row-sub"
-                    >{step.exercise.perSide ? `per ${step.exercise.perSide}` : 'this set'}</span
+                    >{step.exercise.repUnit === 'sec'
+                      ? 'seconds'
+                      : step.exercise.perSide
+                        ? `per ${step.exercise.perSide}`
+                        : 'this set'}</span
                   >
                 </div>
                 <div class="flex items-center gap-3">
                   <button
                     type="button"
                     class="stepper"
-                    onclick={() => (repsInput = Math.max(0, repsInput - 1))}
+                    onclick={() =>
+                      (repsInput = Math.max(
+                        0,
+                        repsInput - (step?.exercise.repUnit === 'sec' ? 5 : 1)
+                      ))}
                     aria-label="Decrease reps"
                   >
                     {@render iconMinus('#f2f3ea')}
@@ -992,7 +1128,8 @@
                   <button
                     type="button"
                     class="stepper"
-                    onclick={() => (repsInput = repsInput + 1)}
+                    onclick={() =>
+                      (repsInput = repsInput + (step?.exercise.repUnit === 'sec' ? 5 : 1))}
                     aria-label="Increase reps"
                   >
                     {@render iconPlus('#f2f3ea')}
@@ -1064,6 +1201,18 @@
                 >
               </button>
             </div>
+            {#if sets.length}
+              {@const lastLogged = sets[sets.length - 1]}
+              <div class="mt-5 flex flex-col gap-1.5">
+                <span class="row-sub">Note — {lastLogged.name}</span>
+                <textarea
+                  class="note-input"
+                  placeholder="How did that feel?"
+                  aria-label="Note for {lastLogged.name}"
+                  bind:value={sessionNotes[lastLogged.exerciseId]}
+                ></textarea>
+              </div>
+            {/if}
           </div>
 
           <div class="card mt-auto flex flex-col gap-3 px-4 py-[18px] md:mt-2">
@@ -1168,7 +1317,10 @@
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[13px] font-bold">{row.ex.name}</span>
                   <span class="tab text-[11px]" style="color: var(--muted);">
-                    {row.logged[0].weight} lb × {row.logged.map((s) => s.reps).join(' · ')}
+                    {row.logged[0].weight} lb × {row.logged.map((s) => s.reps).join(' · ')}{row.ex
+                      .repUnit === 'sec'
+                      ? ' sec'
+                      : ''}
                   </span>
                 </div>
                 {#if row.hitTop}
@@ -1198,14 +1350,29 @@
               {#if row.ex.capNote && (weights[row.ex.id] ?? 0) >= row.ex.capNote.atWeight}
                 <p class="m-0 text-[11px]" style="color: #ff6a3d;">{row.ex.capNote.note}</p>
               {/if}
+              {#if finished.exerciseNotes?.[row.ex.id]}
+                <p class="m-0 text-[11px] italic" style="color: var(--muted);">
+                  “{finished.exerciseNotes[row.ex.id]}”
+                </p>
+              {/if}
             </div>
           {/each}
+        </div>
+
+        <div class="mt-4 flex flex-col gap-1.5 md:col-span-2">
+          <p class="eyebrow m-0 text-[10px]">Session note</p>
+          <textarea
+            class="note-input"
+            placeholder="Anything worth remembering next time?"
+            aria-label="Session note"
+            bind:value={summaryNote}
+          ></textarea>
         </div>
 
         <button
           type="button"
           class="btn-accent mt-auto h-14 md:col-span-2 md:mt-6"
-          onclick={() => (screen = 'home')}
+          onclick={finishSummary}
         >
           <span class="display text-sm tracking-[2.2px]">Done</span>
         </button>
@@ -1215,6 +1382,15 @@
 
   {#if formExercise}
     <FormSheet exercise={formExercise} onclose={() => (formExercise = null)} />
+  {/if}
+
+  {#if editingDraft}
+    <SessionEditor
+      session={editingDraft}
+      onsave={saveEditedSession}
+      ondelete={deleteEditedSession}
+      oncancel={closeSessionEditor}
+    />
   {/if}
 </div>
 
@@ -1321,6 +1497,47 @@
   .form-btn:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .ses-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 2px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--line2);
+    border-radius: 0;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+  }
+  .ses-row:hover {
+    color: var(--accent);
+  }
+  .note-input {
+    width: 100%;
+    min-height: 60px;
+    margin-top: 4px;
+    padding: 10px 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 0;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.4;
+    resize: vertical;
+  }
+  .note-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  .note-input::placeholder {
+    color: var(--muted2);
   }
   .tag-outline {
     padding: 4px 8px;

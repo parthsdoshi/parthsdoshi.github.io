@@ -62,16 +62,16 @@ export const FORM_GUIDES: Record<string, FormGuide> = {
       'Repeat for the recommended amount of repetitions.',
     ],
   },
-  'cable-crunch': {
-    source: 'Cable Crunch',
-    images: ['Cable_Crunch/0.jpg', 'Cable_Crunch/1.jpg'],
+  'pallof-press': {
+    source: 'Pallof Press',
+    images: ['Pallof_Press/0.jpg', 'Pallof_Press/1.jpg'],
     steps: [
-      'Kneel below a high pulley that contains a rope attachment.',
-      'Grasp cable rope attachment and lower the rope until your hands are placed next to your face.',
-      'Flex your hips slightly and allow the weight to hyperextend the lower back. This will be your starting position.',
-      'With the hips stationary, flex the waist as you contract the abs so that the elbows travel towards the middle of the thighs. Exhale as you perform this portion of the movement and hold the contraction for a second.',
-      'Slowly return to the starting position as you inhale. Tip: Make sure that you keep constant tension on the abs throughout the movement. Also, do not choose a weight so heavy that the lower back handles the brunt of the work.',
-      'Repeat for the recommended amount of repetitions.',
+      'Connect a standard handle to a tower, and—if possible—position the cable to shoulder height. If not, a low pulley will suffice.',
+      "With your side to the cable, grab the handle with both hands and step away from the tower. You should be approximately arm's length away from the pulley, with the tension of the weight on the cable.",
+      'With your feet positioned hip-width apart and knees slightly bent, hold the cable to the middle of your chest. This will be your starting position.',
+      'Press the cable away from your chest, fully extending both arms. You core should be tight and engaged.',
+      'Hold the repetition for several seconds before returning to the starting position.',
+      'At the conclusion of the set, repeat facing the other direction.',
     ],
   },
   'reverse-lunge': {
@@ -121,14 +121,13 @@ export const FORM_GUIDES: Record<string, FormGuide> = {
       'Facing a high pulley with a rope or dual handles attached, pull the weight directly towards your face, separating your hands as you do so. Keep your upper arms parallel to the ground.',
     ],
   },
-  'db-curl': {
-    source: 'Dumbbell Bicep Curl',
-    images: ['Dumbbell_Bicep_Curl/0.jpg', 'Dumbbell_Bicep_Curl/1.jpg'],
+  'incline-hammer-curl': {
+    source: 'Incline Hammer Curls',
+    images: ['Incline_Hammer_Curls/0.jpg', 'Incline_Hammer_Curls/1.jpg'],
     steps: [
-      "Stand up straight with a dumbbell in each hand at arm's length. Keep your elbows close to your torso and rotate the palms of your hands until they are facing forward. This will be your starting position.",
-      'Now, keeping the upper arms stationary, exhale and curl the weights while contracting your biceps. Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level. Hold the contracted position for a brief pause as you squeeze your biceps.',
-      'Then, inhale and slowly begin to lower the dumbbells back to the starting position.',
-      'Repeat for the recommended amount of repetitions.',
+      'Seat yourself on an incline bench with a dumbbell in each hand. You should pressed firmly against he back with your feet together. Allow the dumbbells to hang straight down at your side, holding them with a neutral grip. This will be your starting position.',
+      'Initiate the movement by flexing at the elbow, attempting to keep the upper arm stationary.',
+      'Continue to the top of the movement and pause, then slowly return to the start position.',
     ],
   },
   'tricep-pushdown': {
@@ -140,6 +139,31 @@ export const FORM_GUIDES: Record<string, FormGuide> = {
       'Using the triceps, bring the bar down until it touches the front of your thighs and the arms are fully extended perpendicular to the floor. The upper arms should always remain stationary next to your torso and only the forearms should move. Exhale as you perform this movement.',
       'After a second hold at the contracted position, bring the bar slowly up to the starting point. Breathe in as you perform this step.',
       'Repeat for the recommended amount of repetitions.',
+    ],
+  },
+  'farmers-carry': {
+    source: "Farmer's Walk",
+    images: ['Farmers_Walk/0.jpg', 'Farmers_Walk/1.jpg'],
+    steps: [
+      "There are various implements that can be used for the farmers walk. These can also be performed with heavy dumbbells or short bars if these implements aren't available. Begin by standing between the implements.",
+      'After gripping the handles, lift them up by driving through your heels, keeping your back straight and your head up.',
+      "Walk taking short, quick steps, and don't forget to breathe. Move for a given distance, typically 50-100 feet, as fast as possible.",
+    ],
+  },
+  'wrist-curl': {
+    source: 'Seated Dumbbell Palms-Up Wrist Curl',
+    images: [
+      'Seated_Dumbbell_Palms-Up_Wrist_Curl/0.jpg',
+      'Seated_Dumbbell_Palms-Up_Wrist_Curl/1.jpg',
+    ],
+    steps: [
+      'Start out by placing two dumbbells on the floor in front of a flat bench.',
+      'Sit down on the edge of the flat bench with your legs at about shoulder width apart. Make sure to keep your feet on the floor.',
+      'Use your arms to grab both of the dumbbells and bring them up so that your forearms are resting against your thighs with the palms of the hands facing up. Your wrists should be hanging over the edge of your thighs.',
+      'Start out by curling your wrist upwards and exhaling.',
+      'Slowly lower your wrists back down to the starting position while inhaling. Make sure to inhale during this part of the exercise. Tip: Your forearms should be stationary as your wrist is the only movement needed to perform this exercise.',
+      'Repeat for the recommended amount of repetitions.',
+      'When finished, simply lower the dumbbells to the floor.',
     ],
   },
 };

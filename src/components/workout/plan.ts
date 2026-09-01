@@ -3,6 +3,8 @@ export interface Exercise {
   name: string;
   repsMin: number;
   repsMax: number;
+  /** sets are measured in seconds instead of reps */
+  repUnit?: 'sec';
   perSide?: 'leg' | 'arm' | 'side';
   muscles: string[];
   /** lb added/removed per tap of the +/- buttons */
@@ -26,6 +28,8 @@ export interface SupersetBlock {
   kind: 'superset';
   label: string;
   sets: number;
+  /** sets for the second exercise when the pair is uneven (defaults to sets) */
+  setsB?: number;
   restSec: number;
   exercises: [Exercise, Exercise];
 }
@@ -66,6 +70,10 @@ export interface Session {
   workout: 'A' | 'B';
   durationSec: number;
   sets: LoggedSet[];
+  /** free-form note about the whole session */
+  note?: string;
+  /** exercise id -> note jotted during the session */
+  exerciseNotes?: Record<string, string>;
 }
 
 const workoutA: WorkoutDef = {
@@ -107,6 +115,7 @@ const workoutA: WorkoutDef = {
           weightStep: 5,
           defaultWeight: 45,
           weightNote: 'per dumbbell',
+          note: 'Wrist stacked over the elbow, knuckles to the ceiling, DB in the heel of the palm.',
           capNote: {
             atWeight: 50,
             note: 'At 50s for 10: switch to incline or add a 2-second pause at the bottom and climb again.',
@@ -121,7 +130,7 @@ const workoutA: WorkoutDef = {
           weightStep: 5,
           defaultWeight: 30,
           weightNote: 'per dumbbell',
-          note: 'Strict, pause at top. Goal: match or beat your bench weight.',
+          note: 'Chest pinned, one-second squeeze at the top. Pull with the elbow, don’t death-grip. Goal: match or beat your bench.',
         },
       ],
     },
@@ -159,14 +168,15 @@ const workoutA: WorkoutDef = {
       sets: 2,
       restSec: 60,
       exercise: {
-        id: 'cable-crunch',
-        name: 'Cable crunch',
-        repsMin: 12,
-        repsMax: 15,
+        id: 'pallof-press',
+        name: 'Cable Pallof press',
+        repsMin: 10,
+        repsMax: 10,
+        perSide: 'side',
         muscles: ['Core'],
         weightStep: 2.5,
         defaultWeight: 0,
-        note: 'If time allows — this is the cut when running over.',
+        note: 'If time allows — first cut when running over.',
       },
     },
   ],
@@ -191,6 +201,7 @@ const workoutB: WorkoutDef = {
         weightStep: 5,
         defaultWeight: 20,
         weightNote: 'per dumbbell',
+        note: 'All 8 on one leg, then switch — alternating is easier and you’ll go too light.',
       },
     },
     {
@@ -208,6 +219,7 @@ const workoutB: WorkoutDef = {
           weightStep: 5,
           defaultWeight: 20,
           weightNote: 'per dumbbell',
+          note: 'Wrist stacked over the elbow, knuckles to the ceiling, DB in the heel of the palm.',
         },
         {
           id: 'sa-lat-pulldown',
@@ -219,6 +231,7 @@ const workoutB: WorkoutDef = {
           weightStep: 2.5,
           defaultWeight: 0,
           weightNote: 'your pull-up substitute',
+          note: 'Hands are hooks — pull with the elbow, don’t death-grip.',
         },
       ],
     },
@@ -255,15 +268,15 @@ const workoutB: WorkoutDef = {
       restSec: 60,
       exercises: [
         {
-          id: 'db-curl',
-          name: 'Strict DB curl',
+          id: 'incline-hammer-curl',
+          name: 'Incline hammer curl',
           repsMin: 10,
           repsMax: 12,
-          muscles: ['Biceps'],
+          muscles: ['Biceps', 'Forearms'],
           weightStep: 5,
-          defaultWeight: 20,
-          weightNote: 'per dumbbell',
-          note: 'No swing. Earn the weight back with clean reps.',
+          defaultWeight: 15,
+          weightNote: 'per dumbbell · bench at 45°',
+          note: 'Back on the pad, arms hanging, palms in. Elbows behind the torso, full straighten, slow negative. Bench taken? Back flat against a wall. Deliberately light — earn it back with clean reps.',
         },
         {
           id: 'tricep-pushdown',
@@ -276,6 +289,37 @@ const workoutB: WorkoutDef = {
         },
       ],
     },
+    {
+      kind: 'superset',
+      label: '5',
+      sets: 3,
+      setsB: 2,
+      restSec: 60,
+      exercises: [
+        {
+          id: 'farmers-carry',
+          name: "Farmer's carry",
+          repsMin: 30,
+          repsMax: 40,
+          repUnit: 'sec',
+          muscles: ['Grip', 'Forearms', 'Upper back', 'Core'],
+          weightStep: 5,
+          defaultWeight: 50,
+          weightNote: 'per hand',
+          note: 'The wrist fix, part one. Stand tall, don’t let the shoulders sag.',
+        },
+        {
+          id: 'wrist-curl',
+          name: 'Wrist curl + reverse',
+          repsMin: 15,
+          repsMax: 15,
+          muscles: ['Forearms'],
+          weightStep: 5,
+          defaultWeight: 10,
+          note: '15 each way. Already at 35 min? Do the carries, skip these.',
+        },
+      ],
+    },
   ],
 };
 
@@ -284,8 +328,8 @@ export const WORKOUTS: WorkoutDef[] = [workoutA, workoutB];
 export function buildSteps(w: WorkoutDef): SetStep[] {
   const steps: SetStep[] = [];
   w.blocks.forEach((block, bi) => {
-    for (let s = 1; s <= block.sets; s++) {
-      if (block.kind === 'single') {
+    if (block.kind === 'single') {
+      for (let s = 1; s <= block.sets; s++) {
         steps.push({
           key: `${bi}-${block.exercise.id}-${s}`,
           blockLabel: block.label,
@@ -294,30 +338,45 @@ export function buildSteps(w: WorkoutDef): SetStep[] {
           totalSets: block.sets,
           restAfterSec: block.restSec,
         });
-      } else {
-        const [a, b] = block.exercises;
-        steps.push({
-          key: `${bi}-${a.id}-${s}`,
-          blockLabel: `${block.label}a`,
-          exercise: a,
-          setNumber: s,
-          totalSets: block.sets,
-          restAfterSec: 0,
-          partnerName: b.name,
-        });
-        steps.push({
-          key: `${bi}-${b.id}-${s}`,
-          blockLabel: `${block.label}b`,
-          exercise: b,
-          setNumber: s,
-          totalSets: block.sets,
-          restAfterSec: block.restSec,
-          pairSecond: true,
-        });
+      }
+    } else {
+      const [a, b] = block.exercises;
+      const bSets = block.setsB ?? block.sets;
+      const rounds = Math.max(block.sets, bSets);
+      for (let s = 1; s <= rounds; s++) {
+        const hasA = s <= block.sets;
+        const hasB = s <= bSets;
+        if (hasA) {
+          steps.push({
+            key: `${bi}-${a.id}-${s}`,
+            blockLabel: `${block.label}a`,
+            exercise: a,
+            setNumber: s,
+            totalSets: block.sets,
+            restAfterSec: hasB ? 0 : block.restSec,
+            ...(hasB ? { partnerName: b.name } : {}),
+          });
+        }
+        if (hasB) {
+          steps.push({
+            key: `${bi}-${b.id}-${s}`,
+            blockLabel: `${block.label}b`,
+            exercise: b,
+            setNumber: s,
+            totalSets: bSets,
+            restAfterSec: block.restSec,
+            ...(hasA ? { pairSecond: true } : {}),
+          });
+        }
       }
     }
   });
   return steps;
+}
+
+export function plannedSetsFor(block: Block, exId: string): number {
+  if (block.kind === 'single') return block.sets;
+  return exId === block.exercises[1].id ? (block.setsB ?? block.sets) : block.sets;
 }
 
 export function blockExercises(block: Block): Exercise[] {
@@ -338,6 +397,7 @@ export function workoutMuscles(w: WorkoutDef): string[] {
 
 export function repsLabel(ex: Exercise): string {
   const range = ex.repsMin === ex.repsMax ? `${ex.repsMin}` : `${ex.repsMin}–${ex.repsMax}`;
+  if (ex.repUnit === 'sec') return `${range} sec`;
   return ex.perSide ? `${range} / ${ex.perSide}` : `${range} reps`;
 }
 
