@@ -25,7 +25,7 @@ const server = spawn('pnpm', ['preview', '--port', String(PORT)], { stdio: 'igno
 let failed = false;
 try {
   await waitForServer(BASE);
-  for (const suite of ['./migration.mjs']) {
+  for (const suite of ['./migration.mjs', './graduation.mjs']) {
     const { run, name } = await import(suite);
     process.stdout.write(`suite: ${name}\n`);
     await run(BASE);
