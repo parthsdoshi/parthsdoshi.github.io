@@ -67,6 +67,12 @@ export interface LoggedSet {
   reps: number;
 }
 
+export interface BodyweightEntry {
+  /** local calendar date, YYYY-MM-DD */
+  date: string;
+  lb: number;
+}
+
 export interface Session {
   date: string;
   workout: 'A' | 'B';

@@ -167,6 +167,10 @@ export async function run(baseURL) {
       JSON.parse(localStorage.getItem('workout:overrides') || '{}')
     );
     assert.deepEqual(overrides, {}, 'a backup without overrides leaves no graduations');
+    const bodyweight = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('workout:bodyweight') || '[]')
+    );
+    assert.deepEqual(bodyweight, [], 'a backup without bodyweight leaves the log empty');
 
     assert.equal(pageErrors.length, 0, `page errors during suite: ${pageErrors.join('; ')}`);
   } finally {

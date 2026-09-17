@@ -9,6 +9,7 @@
     plannedSetsFor,
     resolveWorkout,
     allExercises,
+    type BodyweightEntry,
     type Exercise,
     type LoggedSet,
     type Session,
@@ -18,6 +19,7 @@
   import MuscleMap from './MuscleMap.svelte';
   import FormSheet from './FormSheet.svelte';
   import SessionEditor from './SessionEditor.svelte';
+  import BodyweightLog from './BodyweightLog.svelte';
 
   // SHA-256 of the password; the plaintext never ships in the bundle.
   const PASS_HASH = 'cad0535decc38b248b40e7aef9a1cfd91ce386fa5c46f05ea622649e7faf18fb';
@@ -27,6 +29,7 @@
   const KEY_HISTORY = 'workout:history';
   const KEY_ACTIVE = 'workout:active';
   const KEY_OVERRIDES = 'workout:overrides';
+  const KEY_BODYWEIGHT = 'workout:bodyweight';
 
   interface ActiveSnapshot {
     workoutId: 'A' | 'B';
@@ -49,6 +52,8 @@
   let history = $state<Session[]>([]);
   // Graduation overrides: base exercise id -> successor exercise id
   let overrides = $state<Record<string, string>>({});
+  // Weekly weigh-ins, sorted by date, one per day
+  let bodyweight = $state<BodyweightEntry[]>([]);
   let resumable = $state<ActiveSnapshot | null>(null);
 
   // Active session state
@@ -120,6 +125,34 @@
     return out;
   }
 
+  function sanitizeBodyweight(raw: unknown): BodyweightEntry[] {
+    if (!Array.isArray(raw)) return [];
+    const byDate = new Map<string, number>();
+    for (const e of raw) {
+      if (!e || typeof e !== 'object') continue;
+      const { date, lb } = e as Record<string, unknown>;
+      if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (typeof lb !== 'number' || !Number.isFinite(lb) || lb <= 0) continue;
+      byDate.set(date, Math.round(lb * 10) / 10);
+    }
+    return [...byDate.entries()]
+      .map(([date, lb]) => ({ date, lb }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  function localToday(): string {
+    return new Date().toLocaleDateString('en-CA');
+  }
+
+  function logBodyweight(lb: number) {
+    const date = localToday();
+    bodyweight = sanitizeBodyweight([...bodyweight.filter((e) => e.date !== date), { date, lb }]);
+  }
+
+  function deleteBodyweight(date: string) {
+    bodyweight = bodyweight.filter((e) => e.date !== date);
+  }
+
   function readJson<T>(key: string, fallback: T): T {
     try {
       const raw = localStorage.getItem(key);
@@ -137,6 +170,7 @@
       history = readJson(KEY_HISTORY, []);
       resumable = readJson(KEY_ACTIVE, null);
       overrides = sanitizeOverrides(readJson(KEY_OVERRIDES, {}));
+      bodyweight = sanitizeBodyweight(readJson(KEY_BODYWEIGHT, []));
     } catch {
       // localStorage unavailable — everything still works, nothing persists
     }
@@ -173,6 +207,17 @@
     if (loaded) {
       try {
         localStorage.setItem(KEY_OVERRIDES, json);
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  $effect(() => {
+    const json = JSON.stringify(bodyweight);
+    if (loaded) {
+      try {
+        localStorage.setItem(KEY_BODYWEIGHT, json);
       } catch {
         /* ignore */
       }
@@ -600,6 +645,7 @@
       weights,
       history,
       overrides,
+      bodyweight,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -643,7 +689,12 @@
     if (!file) return;
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      const data = (parsed ?? {}) as { weights?: unknown; history?: unknown; overrides?: unknown };
+      const data = (parsed ?? {}) as {
+        weights?: unknown;
+        history?: unknown;
+        overrides?: unknown;
+        bodyweight?: unknown;
+      };
       const importedHistory = (Array.isArray(data.history) ? data.history : [])
         .filter(isSession)
         .map((s): Session => {
@@ -685,6 +736,7 @@
       }
       weights = merged;
       overrides = sanitizeOverrides(data.overrides);
+      bodyweight = sanitizeBodyweight(data.bodyweight);
       importStatus = `Imported ${importedHistory.length} session${importedHistory.length === 1 ? '' : 's'}.`;
     } catch {
       importStatus = 'Import failed — could not read that file.';
@@ -959,6 +1011,15 @@
             >
               Start workout {otherWorkout.id}
             </button>
+          </div>
+
+          <div class="mt-4">
+            <BodyweightLog
+              entries={bodyweight}
+              today={localToday()}
+              onlog={logBodyweight}
+              ondelete={deleteBodyweight}
+            />
           </div>
 
           {#if history.length}
