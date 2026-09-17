@@ -43,7 +43,14 @@ export async function run(baseURL) {
             workout: 'B',
             durationSec: 2100,
             sets: [
-              { exerciseId: 'db-curl', name: 'Strict DB curl', blockLabel: '4a', setNumber: 1, weight: 20, reps: 12 },
+              {
+                exerciseId: 'db-curl',
+                name: 'Strict DB curl',
+                blockLabel: '4a',
+                setNumber: 1,
+                weight: 20,
+                reps: 12,
+              },
             ],
           },
           {
@@ -51,7 +58,14 @@ export async function run(baseURL) {
             workout: 'A',
             durationSec: 2000,
             sets: [
-              { exerciseId: 'cable-crunch', name: 'Cable crunch', blockLabel: '4', setNumber: 1, weight: 25, reps: 14 },
+              {
+                exerciseId: 'cable-crunch',
+                name: 'Cable crunch',
+                blockLabel: '4',
+                setNumber: 1,
+                weight: 25,
+                reps: 14,
+              },
             ],
           },
         ])
@@ -63,7 +77,14 @@ export async function run(baseURL) {
           stepIdx: 999,
           phase: 'work',
           sets: [
-            { exerciseId: 'db-curl', name: 'Strict DB curl', blockLabel: '4a', setNumber: 1, weight: 20, reps: 11 },
+            {
+              exerciseId: 'db-curl',
+              name: 'Strict DB curl',
+              blockLabel: '4a',
+              setNumber: 1,
+              weight: 20,
+              reps: 11,
+            },
           ],
           startedAt: Date.now() - 20 * 60 * 1000,
           restEndsAt: 0,
@@ -120,7 +141,14 @@ export async function run(baseURL) {
             workout: 'A',
             durationSec: 1900,
             sets: [
-              { exerciseId: 'cable-crunch', name: 'Cable crunch', blockLabel: '4', setNumber: 1, weight: 30, reps: 12 },
+              {
+                exerciseId: 'cable-crunch',
+                name: 'Cable crunch',
+                blockLabel: '4',
+                setNumber: 1,
+                weight: 30,
+                reps: 12,
+              },
             ],
           },
         ],
@@ -135,6 +163,10 @@ export async function run(baseURL) {
     const history2 = await page.evaluate(() => JSON.parse(localStorage.getItem('workout:history')));
     assert.equal(history2.length, 1, 'imported history must replace current');
     assert.equal(history2[0].sets[0].exerciseId, 'cable-crunch', 'retired ids must survive import');
+    const overrides = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('workout:overrides') || '{}')
+    );
+    assert.deepEqual(overrides, {}, 'a backup without overrides leaves no graduations');
 
     assert.equal(pageErrors.length, 0, `page errors during suite: ${pageErrors.join('; ')}`);
   } finally {

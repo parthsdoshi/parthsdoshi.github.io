@@ -14,6 +14,8 @@ export interface Exercise {
   note?: string;
   /** shown once the working weight reaches atWeight */
   capNote?: { atWeight: number; note: string };
+  /** once every set hits the top of the rep range at >= atWeight, hand the slot to `to` */
+  graduation?: { atWeight: number; to: Exercise };
 }
 
 export interface SingleBlock {
@@ -76,6 +78,19 @@ export interface Session {
   exerciseNotes?: Record<string, string>;
 }
 
+const bulgarianSplitSquat: Exercise = {
+  id: 'bulgarian-split-squat',
+  name: 'Bulgarian split squat',
+  repsMin: 8,
+  repsMax: 10,
+  perSide: 'leg',
+  muscles: ['Quads', 'Glutes', 'Hamstrings', 'Core'],
+  weightStep: 5,
+  defaultWeight: 20,
+  weightNote: 'per dumbbell',
+  note: 'Rear foot on the bench. All reps on one leg, then switch. Drop straight down, front knee tracking over the foot.',
+};
+
 const workoutA: WorkoutDef = {
   id: 'A',
   title: 'Squat, bench, row, hinge',
@@ -94,10 +109,7 @@ const workoutA: WorkoutDef = {
         weightStep: 5,
         defaultWeight: 0,
         weightNote: 'pick a weight that leaves 2 reps in the tank',
-        capNote: {
-          atWeight: 50,
-          note: 'At 50 and feeling easy: move to DB front squat (two dumbbells at the shoulders).',
-        },
+        graduation: { atWeight: 50, to: bulgarianSplitSquat },
       },
     },
     {
@@ -377,6 +389,43 @@ export function buildSteps(w: WorkoutDef): SetStep[] {
 export function plannedSetsFor(block: Block, exId: string): number {
   if (block.kind === 'single') return block.sets;
   return exId === block.exercises[1].id ? (block.setsB ?? block.sets) : block.sets;
+}
+
+function resolveExercise(ex: Exercise, overrides: Record<string, string>): Exercise {
+  const target = ex.graduation?.to;
+  return target && overrides[ex.id] === target.id ? target : ex;
+}
+
+/** Apply graduation overrides (base exercise id -> successor id) to a workout. */
+export function resolveWorkout(def: WorkoutDef, overrides: Record<string, string>): WorkoutDef {
+  return {
+    ...def,
+    blocks: def.blocks.map((block) =>
+      block.kind === 'single'
+        ? { ...block, exercise: resolveExercise(block.exercise, overrides) }
+        : {
+            ...block,
+            exercises: [
+              resolveExercise(block.exercises[0], overrides),
+              resolveExercise(block.exercises[1], overrides),
+            ] as [Exercise, Exercise],
+          }
+    ),
+  };
+}
+
+/** Every exercise the plan can ever put on the floor, graduation targets included. */
+export function allExercises(): Exercise[] {
+  const out: Exercise[] = [];
+  for (const w of WORKOUTS) {
+    for (const block of w.blocks) {
+      for (const ex of blockExercises(block)) {
+        out.push(ex);
+        if (ex.graduation) out.push(ex.graduation.to);
+      }
+    }
+  }
+  return out;
 }
 
 export function blockExercises(block: Block): Exercise[] {

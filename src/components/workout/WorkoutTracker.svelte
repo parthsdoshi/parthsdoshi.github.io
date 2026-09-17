@@ -7,6 +7,8 @@
     repsLabel,
     formatTime,
     plannedSetsFor,
+    resolveWorkout,
+    allExercises,
     type Exercise,
     type LoggedSet,
     type Session,
@@ -24,6 +26,7 @@
   const KEY_WEIGHTS = 'workout:weights';
   const KEY_HISTORY = 'workout:history';
   const KEY_ACTIVE = 'workout:active';
+  const KEY_OVERRIDES = 'workout:overrides';
 
   interface ActiveSnapshot {
     workoutId: 'A' | 'B';
@@ -44,6 +47,8 @@
 
   let weights = $state<Record<string, number>>({});
   let history = $state<Session[]>([]);
+  // Graduation overrides: base exercise id -> successor exercise id
+  let overrides = $state<Record<string, string>>({});
   let resumable = $state<ActiveSnapshot | null>(null);
 
   // Active session state
@@ -60,8 +65,10 @@
 
   // Summary state
   let finished = $state<Session | null>(null);
+  let finishedWorkout = $state<WorkoutDef | null>(null);
   let bumped = $state<Record<string, boolean>>({});
   let summaryNote = $state('');
+  let graduated = $state<{ from: Exercise; to: Exercise }[]>([]);
 
   // Notes jotted during the active session, keyed by exercise id
   let sessionNotes = $state<Record<string, string>>({});
@@ -102,6 +109,17 @@
 
   let loaded = false;
 
+  // Keep only overrides that name a real graduation pair in the current plan.
+  function sanitizeOverrides(raw: unknown): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (!raw || typeof raw !== 'object') return out;
+    for (const ex of allExercises()) {
+      const target = ex.graduation?.to.id;
+      if (target && (raw as Record<string, unknown>)[ex.id] === target) out[ex.id] = target;
+    }
+    return out;
+  }
+
   function readJson<T>(key: string, fallback: T): T {
     try {
       const raw = localStorage.getItem(key);
@@ -118,15 +136,12 @@
       weights = readJson(KEY_WEIGHTS, {});
       history = readJson(KEY_HISTORY, []);
       resumable = readJson(KEY_ACTIVE, null);
+      overrides = sanitizeOverrides(readJson(KEY_OVERRIDES, {}));
     } catch {
       // localStorage unavailable — everything still works, nothing persists
     }
-    for (const w of WORKOUTS) {
-      for (const block of w.blocks) {
-        for (const ex of blockExercises(block)) {
-          if (!(ex.id in weights)) weights[ex.id] = ex.defaultWeight;
-        }
-      }
+    for (const ex of allExercises()) {
+      if (!(ex.id in weights)) weights[ex.id] = ex.defaultWeight;
     }
     loaded = true;
   }
@@ -147,6 +162,17 @@
     if (loaded) {
       try {
         localStorage.setItem(KEY_HISTORY, json);
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  $effect(() => {
+    const json = JSON.stringify(overrides);
+    if (loaded) {
+      try {
+        localStorage.setItem(KEY_OVERRIDES, json);
       } catch {
         /* ignore */
       }
@@ -291,8 +317,23 @@
 
   const lastSession = $derived(history.length ? history[history.length - 1] : null);
   const suggestedId = $derived<'A' | 'B'>(lastSession?.workout === 'A' ? 'B' : 'A');
-  const suggestedWorkout = $derived(WORKOUTS.find((w) => w.id === suggestedId) ?? WORKOUTS[0]);
-  const otherWorkout = $derived(WORKOUTS.find((w) => w.id !== suggestedId) ?? WORKOUTS[1]);
+  const resolvedWorkouts = $derived(WORKOUTS.map((w) => resolveWorkout(w, overrides)));
+  const suggestedWorkout = $derived(
+    resolvedWorkouts.find((w) => w.id === suggestedId) ?? resolvedWorkouts[0]
+  );
+  const otherWorkout = $derived(
+    resolvedWorkouts.find((w) => w.id !== suggestedId) ?? resolvedWorkouts[1]
+  );
+  const graduations = $derived(
+    allExercises()
+      .filter((ex) => ex.graduation && overrides[ex.id] === ex.graduation.to.id)
+      .map((ex) => ({ from: ex, to: ex.graduation!.to }))
+  );
+
+  function undoGraduation(fromId: string) {
+    delete overrides[fromId];
+    graduated = graduated.filter((g) => g.from.id !== fromId);
+  }
 
   const homeEyebrow = $derived.by(() => {
     const today = new Date();
@@ -373,7 +414,7 @@
   function resumeWorkout() {
     const snap = resumable;
     if (!snap) return;
-    const def = WORKOUTS.find((w) => w.id === snap.workoutId);
+    const def = resolvedWorkouts.find((w) => w.id === snap.workoutId);
     if (!def) return;
     workout = def;
     steps = buildSteps(def);
@@ -483,6 +524,23 @@
     };
     summaryNote = '';
     if (session.sets.length) history.push(session);
+    const newlyGraduated: { from: Exercise; to: Exercise }[] = [];
+    for (const block of workout.blocks) {
+      for (const ex of blockExercises(block)) {
+        const g = ex.graduation;
+        if (!g || overrides[ex.id]) continue;
+        const logged = session.sets.filter((s) => s.exerciseId === ex.id);
+        const earned =
+          logged.length >= plannedSetsFor(block, ex.id) &&
+          logged.every((s) => s.reps >= ex.repsMax && s.weight >= g.atWeight);
+        if (earned) {
+          overrides[ex.id] = g.to.id;
+          weights[g.to.id] ??= g.to.defaultWeight;
+          newlyGraduated.push({ from: ex, to: g.to });
+        }
+      }
+    }
+    graduated = newlyGraduated;
     try {
       localStorage.removeItem(KEY_ACTIVE);
     } catch {
@@ -491,6 +549,7 @@
     releaseWakeLock();
     if (session.sets.length) {
       finished = session;
+      finishedWorkout = workout;
       bumped = {};
       screen = 'summary';
     } else {
@@ -540,6 +599,7 @@
       exportedAt: new Date().toISOString(),
       weights,
       history,
+      overrides,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -583,7 +643,7 @@
     if (!file) return;
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      const data = (parsed ?? {}) as { weights?: unknown; history?: unknown };
+      const data = (parsed ?? {}) as { weights?: unknown; history?: unknown; overrides?: unknown };
       const importedHistory = (Array.isArray(data.history) ? data.history : [])
         .filter(isSession)
         .map((s): Session => {
@@ -620,14 +680,11 @@
       importedHistory.sort((a, b) => a.date.localeCompare(b.date));
       history = importedHistory;
       const merged = { ...importedWeights };
-      for (const w of WORKOUTS) {
-        for (const block of w.blocks) {
-          for (const ex of blockExercises(block)) {
-            if (!(ex.id in merged)) merged[ex.id] = ex.defaultWeight;
-          }
-        }
+      for (const ex of allExercises()) {
+        if (!(ex.id in merged)) merged[ex.id] = ex.defaultWeight;
       }
       weights = merged;
+      overrides = sanitizeOverrides(data.overrides);
       importStatus = `Imported ${importedHistory.length} session${importedHistory.length === 1 ? '' : 's'}.`;
     } catch {
       importStatus = 'Import failed — could not read that file.';
@@ -640,11 +697,12 @@
     ex: Exercise;
     logged: LoggedSet[];
     hitTop: boolean;
+    graduatedTo?: Exercise;
   }
 
   const summaryRows = $derived.by((): SummaryRow[] => {
     if (!finished) return [];
-    const def = WORKOUTS.find((w) => w.id === finished.workout);
+    const def = finishedWorkout ?? WORKOUTS.find((w) => w.id === finished.workout);
     if (!def) return [];
     const rows: SummaryRow[] = [];
     for (const block of def.blocks) {
@@ -654,7 +712,8 @@
         const hitTop =
           logged.length >= plannedSetsFor(block, ex.id) &&
           logged.every((s) => s.reps >= ex.repsMax);
-        rows.push({ ex, logged, hitTop });
+        const graduatedTo = graduated.find((g) => g.from.id === ex.id)?.to;
+        rows.push({ ex, logged, hitTop, ...(graduatedTo ? { graduatedTo } : {}) });
       }
     }
     return rows;
@@ -854,6 +913,16 @@
               {/each}
             {/each}
           </div>
+          {#each graduations as g (g.from.id)}
+            {#if suggestedWorkout.blocks.some( (b) => blockExercises(b).some((ex) => ex.id === g.to.id) )}
+              <p class="m-0 text-[11px]" style="color: var(--muted);">
+                Graduated: {g.from.name} → {g.to.name}.
+                <button type="button" class="link-btn" onclick={() => undoGraduation(g.from.id)}
+                  >Undo</button
+                >
+              </p>
+            {/if}
+          {/each}
           {@render chips(workoutMuscles(suggestedWorkout))}
           <button
             type="button"
@@ -873,6 +942,16 @@
               >
               <span class="row-sub">{otherWorkout.title}</span>
             </div>
+            {#each graduations as g (g.from.id)}
+              {#if otherWorkout.blocks.some( (b) => blockExercises(b).some((ex) => ex.id === g.to.id) )}
+                <p class="m-0 text-[11px]" style="color: var(--muted);">
+                  Graduated: {g.from.name} → {g.to.name}.
+                  <button type="button" class="link-btn" onclick={() => undoGraduation(g.from.id)}
+                    >Undo</button
+                  >
+                </p>
+              {/if}
+            {/each}
             <button
               type="button"
               class="btn-outline h-12"
@@ -1057,6 +1136,12 @@
             {/if}
             {#if step.exercise.capNote && (weights[step.exercise.id] ?? 0) >= step.exercise.capNote.atWeight}
               <p class="m-0 text-xs" style="color: #ff6a3d;">{step.exercise.capNote.note}</p>
+            {/if}
+            {#if step.exercise.graduation && (weights[step.exercise.id] ?? 0) >= step.exercise.graduation.atWeight}
+              <p class="m-0 text-xs" style="color: var(--accent);">
+                Top of the rep range on every set at {step.exercise.graduation.atWeight} lb graduates
+                this to {step.exercise.graduation.to.name}.
+              </p>
             {/if}
             <div class="flex items-center gap-[18px] py-1">
               <MuscleMap muscles={step.exercise.muscles} width={50} />
@@ -1323,7 +1408,9 @@
                       : ''}
                   </span>
                 </div>
-                {#if row.hitTop}
+                {#if row.graduatedTo}
+                  <span class="tag-accent whitespace-nowrap">→ {row.graduatedTo.name}</span>
+                {:else if row.hitTop}
                   {#if bumped[row.ex.id]}
                     <span
                       class="text-[11px] font-bold uppercase tracking-[1.4px]"
@@ -1342,7 +1429,15 @@
                   {/if}
                 {/if}
               </div>
-              {#if row.hitTop}
+              {#if row.graduatedTo}
+                <p class="m-0 text-[11px]" style="color: var(--accent);">
+                  Full rep range at {row.ex.graduation?.atWeight} lb — Workout {finished.workout} now
+                  runs {row.graduatedTo.name}.
+                  <button type="button" class="link-btn" onclick={() => undoGraduation(row.ex.id)}
+                    >Undo</button
+                  >
+                </p>
+              {:else if row.hitTop}
                 <p class="m-0 text-[11px]" style="color: var(--accent);">
                   Hit the top of the rep range on every set — add weight next session.
                 </p>
@@ -1517,6 +1612,17 @@
   }
   .ses-row:hover {
     color: var(--accent);
+  }
+  .link-btn {
+    background: transparent;
+    border: 0;
+    padding: 0 0 0 6px;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
   }
   .note-input {
     width: 100%;

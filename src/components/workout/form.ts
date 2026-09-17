@@ -166,4 +166,14 @@ export const FORM_GUIDES: Record<string, FormGuide> = {
       'When finished, simply lower the dumbbells to the floor.',
     ],
   },
+  'bulgarian-split-squat': {
+    source: 'Split Squat with Dumbbells',
+    images: ['Split_Squat_with_Dumbbells/0.jpg', 'Split_Squat_with_Dumbbells/1.jpg'],
+    steps: [
+      'Position yourself into a staggered stance with the rear foot elevated and front foot forward.',
+      'Hold a dumbbell in each hand, letting them hang at the sides. This will be your starting position.',
+      'Begin by descending, flexing your knee and hip to lower your body down. Maintain good posture througout the movement. Keep the front knee in line with the foot as you perform the exercise.',
+      'At the bottom of the movement, drive through the heel to extend the knee and hip to return to the starting position.',
+    ],
+  },
 };
